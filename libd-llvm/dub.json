@@ -1,9 +1,11 @@
 {
 	"name": "libd-llvm",
-  "targetType": "library",
+	"targetType": "library",
 	"description": "SDC's llvm binding'",
 	"copyright": "Copyright © 2014, deadlnix",
 	"authors": ["deadlnix"],
+	"importPaths" : ["import"],
 	"dependencies": {
+		"libd": {"version":"~master","path":"libd"}
 	}
 }
