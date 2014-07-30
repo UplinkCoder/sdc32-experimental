@@ -1,12 +1,12 @@
-SDC - The Stupid D Compiler
+SDC32 - The Stupid D Compiler - EXPERIMENTAL 32BIT FORK
 ===========================
-This is the home of a [D](http://dlang.org/) compiler.
+This is _not_ the home of a [D](http://dlang.org/) compiler.
 SDC is at the moment, particularly stupid; it is a work in progress. Feel free to poke around, but don't expect it to compile your code.
 
 This compiler is based on [libd](https://github.com/deadalnix/libd) for D code analysis. It uses [LLVM](http://llvm.org/) and [libd-llvm](https://github.com/deadalnix/libd-llvm) for codegen and JIT CTFE.
 
 The code is released under the MIT license (see the LICENCE file for more details).
-Contact me at deadalnix@gmail.com
+/*Contact me at deadalnix@gmail.com*/
 
 SDC require DMD release `2.065` to compile.
 
@@ -45,14 +45,7 @@ This just me thinking outloud about what features I want, when.
 Compiling SDC on Linux
 =======
 You'll need `make` and the latest DMD installed.
-Install LLVM 3.4. Ensure that libd and libd-llvm provided as submodules are compiled properly.
-````
-git submodule init
-git submodule update
-cd libd-llvm
-git submodule init
-git submodule update
-````
+Install LLVM 3.4.
 
 Run `make`.
 
@@ -65,4 +58,4 @@ SDC require LLVM 3.4 . if the default llvm-config on your system is an older ver
 Extract the LLVM DLL binary archive to the SDC repository, then build with `make -f Makefile.windows`.
 When running SDC, make sure `gcc`, `llc` and `opt` are available in your PATH.
 
-To run the tests, execute `dmd runner.d` to build the test-runner application found in `tests/`, then run it with `runner`.
+To run the tests, execute `dmd runner.d` to build the test-runner application found in `tests/`, then run it with `runner --m32`.
