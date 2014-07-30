@@ -1,0 +1,1299 @@
+{
+    "len": 160,
+    "tests": [
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 0,
+            "has_passed": true,
+            "code": "\/\/ Tests the simplest of programs.\n\nint main() {\n\treturn 42;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 84,
+            "deps": [],
+            "number": 1,
+            "has_passed": true,
+            "code": "\/\/ Tests simple literal expressions.\n\nint main() {\n\treturn 42 + 21 * 2;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 84,
+            "deps": [],
+            "number": 2,
+            "has_passed": true,
+            "code": "\/\/ Tests local variables with simple expressions.\n\nint main() {\n\tint a = 42, b = 21;\n\tint c = 2;\n\treturn a + b * c;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 3,
+            "has_passed": true,
+            "code": "\/\/ Tests casting.\n\nint main() {\n\tlong a = 21; \/\/ int -> long, implicit\n\tint c = 21;\n\tif (a > c) {\n\t\treturn 17;\n\t}\n\t\n\treturn cast(int) a + c;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 12,
+            "deps": [],
+            "number": 4,
+            "has_passed": true,
+            "code": "\/\/ Tests the casting of booleans to ints. \n\nint main() {\n\tbool a = false, b = true;\n\tif (cast(int) a != 0) {\n\t\treturn 1;\n\t}\n\t\n\tif (cast(int) b != 1) {\n\t\treturn 2;\n\t}\n\t\n\ta = true;\n\treturn a + b + 10;\n}\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 5,
+            "has_passed": true,
+            "code": "\/\/ Tests simple functions, and use before definition.\n\nint main() {\n\treturn add(21, add(19 + 1, 1));\n}\n\nint add(int a, int b) {\n\treturn a + b;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 6,
+            "has_passed": true,
+            "code": "\/\/ Create one variable of every primitive type.\n\nint main() {\n\tbool b;\n\tbyte by;\n\tubyte uby;\n\tshort s;\n\tushort us;\n\tint i;\n\tuint ui;\n\tlong l;\n\tulong ul;\n\tfloat f;\n\tdouble d;\n\treal r;\n\tchar c;\n\twchar wc;\n\tdchar dc;\n\t\n\treturn i;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 1,
+            "deps": [],
+            "number": 7,
+            "has_passed": true,
+            "code": "\/\/ Tests increment on types smaller than int.\n\nint main() {\n\tbyte b;\n\tb++;\n\t\n\treturn b;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 8,
+            "has_passed": true,
+            "code": "\/\/ Tests increment\/decrement semantics.\n\nint add(int a, int b) {\n\treturn a + b;\n}\n\nint main() {\n\tint a = 40;\n\tint b = 3;\n\t\n\treturn add(a++, --b);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 9,
+            "has_passed": true,
+            "code": "\/\/ Tests strings and character literals, and string\/pointer casts.\n\nextern(C) size_t strlen(const char* s);\n\nint main() {\n\tstring str = \"test\";  \n\tif(str.length != 4) {\n\t\treturn 1;\n\t}\n\t\n\tif(str[2] != 's') {\n\t\treturn 2;\n\t}\n\t\n\tauto p = str.ptr;\n\tif(strlen(p) != str.length) {\n\t\treturn 3;\n\t}\n\t\n\treturn 0;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 12,
+            "deps": [],
+            "number": 10,
+            "has_passed": true,
+            "code": "\/\/ Tests typeof and evaluation of expressions with no side-effects.\n\nint main() {\n\tint i = 12;\n\ttypeof(i++) j;\n\t\n\treturn i + j;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 11,
+            "has_passed": true,
+            "code": "\/\/ Tests struct member functions, implicit and explicit this.\n\nstruct S {\n\tint c, d;\n\t\n\tint add(int a, int b) {\n\t\treturn a + b + c + this.d;\n\t}\n}\n\nint main() {\n\tS s;\n\ts.c = s.d = 1;\n\treturn s.add(38, 2);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 58,
+            "deps": [],
+            "number": 12,
+            "has_passed": true,
+            "code": "\nint foo(int n) {\n\tif (n == 17) {\n\t\treturn 16;\n\t} else if (n == 16) {\n\t\treturn 32;\n\t} else {\n\t\tif (n == 0) {\n\t\t\treturn 16;\n\t\t} else if (n == 17) {\n\t\t\treturn 8;\n\t\t} else {\n\t\t\treturn 7;\n\t\t}\n\t}\n}\n\nint main() {\n\treturn foo(0) + 42;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 13,
+            "has_passed": true,
+            "code": "\/\/ Simple type inference.\n\nint main() {\n\tauto i = 42;\n\treturn i;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 58,
+            "deps": [],
+            "number": 14,
+            "has_passed": true,
+            "code": "\nint foo(int a) {\n\tif(a == 56 || a++) {\n\t\ta++;\n\t}\n\t\n\tif(a != 57 && a--) {\n\t\ta = 32;\n\t}\n\t\n\tif(a == 57 && a++) {}\n\t\n\treturn a;\n}\n\nint main() {\n\treturn foo(56);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 73,
+            "deps": [],
+            "number": 15,
+            "has_passed": true,
+            "code": "\/\/ Simple test of ref.\n\nvoid change(ref int i, int to) {\n\ti = to;\n}\n\nint main() {\n\tint i = 0;\n\tchange(i, 73);\n\treturn i;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 32,
+            "deps": [],
+            "number": 16,
+            "has_passed": true,
+            "code": "\nint add(int a, int b) {\n\treturn a + b;\n}\n\nint main() {\n\tint function(int, int) f;\n\tf = &add;\n\treturn f(30, 2);\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 17,
+            "has_passed": true,
+            "code": "\nint main() {\n\treturn 3++;\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 18,
+            "has_passed": true,
+            "code": "\nvoid foo(ref long i) {\n\ti = 42;\n}\n\nint main() {\n\tint i;\n\tfoo(i);\n\treturn i;\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 19,
+            "has_passed": true,
+            "code": "\nvoid foo(ref int i) {\n\ti = 42;\n}\n\nint main() {\n\tconst int i = 21;\n\tfoo(i);\n\treturn i;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [
+                "\/\/ Basic import testing\nmodule test0020_import1;\n\nint importedFunction() {\n\treturn 21;\n}\n\n",
+                "\/\/ Basic import testing\nmodule test0020_import2;\n\nint anotherImportedFunction() {\n\treturn 21;\n}\n\n"
+            ],
+            "number": 20,
+            "has_passed": true,
+            "code": "\/\/ Basic import testing\n\nimport test0020_import1;\nimport test0020_import2;\n\nint main() {\n\tint a = importedFunction();\n\tint b = anotherImportedFunction();\n\n\treturn a + b;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 21,
+            "has_passed": false,
+            "code": "\nint foo() { return 42; }\n\nint main() {\n\tint function()[] l;\n\tl.length = 1;\n\tl[0] = &foo;\n\t\n\treturn l[0]();\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 33,
+            "deps": [
+                "import test0022;\n\nint start() {\n\treturn begin() + 1;\n}\n\nint ten() {\n\treturn 10;\n}\n\nint addOne(int function() fn) {\n\treturn fn() + 1;\n}\n\nint function() tenptr() {\n\treturn &ten;\n}\n\n"
+            ],
+            "number": 22,
+            "has_passed": true,
+            "code": "\nimport test0022_import1;\n\nint begin() {\n\treturn 1 + tenptr()() + addOne(&twelve) + 8;\n}\n\nint twelve() {\n\treturn 12;\n}\n\nint main() {\n\treturn start();\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 23,
+            "has_passed": true,
+            "code": "\nint foo() {\n\treturn 42;\n}\n\nint main() {\n\tvoid* p = &foo;\n\tauto fn = (cast(int function())p)();\n\t\n\treturn fn;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 12,
+            "deps": [],
+            "number": 24,
+            "has_passed": true,
+            "code": "\nint main() {\n\treturn (12);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 10,
+            "deps": [],
+            "number": 25,
+            "has_passed": true,
+            "code": "\nint main() {\n\treturn 12 - 2;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 2,
+            "deps": [],
+            "number": 26,
+            "has_passed": true,
+            "code": "\nint main() {\n\tint i;\n\tvoid* p = &i;\n\t\n\treturn *(cast(int*) p) + 2;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 1,
+            "deps": [],
+            "number": 27,
+            "has_passed": true,
+            "code": "\nenum Foo {\n\tBar,\n\tBaz,\n}\n\nint main() {\n\treturn Foo.Baz;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 1,
+            "deps": [],
+            "number": 28,
+            "has_passed": true,
+            "code": "\nenum {\n\tBar,\n\tBaz,\n}\n\nint main() {\n\treturn Baz;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 29,
+            "has_passed": true,
+            "code": "\nenum A : byte {\n\tFoo,\n}\n\nenum B : long {\n\tBar,\n}\n\nint main() {\n\tif(A.Foo.sizeof < B.Bar.sizeof) {\n\t\treturn 42;\n\t} else {\n\t\treturn 0;\n\t}\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 30,
+            "has_passed": true,
+            "code": "\nenum {\n\tA = 42,\n\tB = A,\n}\n\nint main() {\n\treturn B;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 31,
+            "has_passed": true,
+            "code": "\nstruct S {\n\tenum O {\n\t\tB = 21,\n\t}\n}\n\nint main() {\n\tS s;\n\treturn s.O.B + S.O.B;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 1,
+            "deps": [],
+            "number": 32,
+            "has_passed": true,
+            "code": "\nint main() {\n\tauto a = new Object();\n\tauto b = new Object();\n\t\n\treturn 1;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 25,
+            "deps": [],
+            "number": 33,
+            "has_passed": true,
+            "code": "\nstruct S {\n\tstatic int foo() {\n\t\treturn 21;\n\t}\n\n\tint bar() {\n\t\treturn 4;\n\t}\n}\n\nint main() {\n\tS s;\n\t\n\treturn S.foo() + s.bar();\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 17,
+            "deps": [],
+            "number": 34,
+            "has_passed": true,
+            "code": "\nstruct S {\n\tA foo(bar b) {\n\t\tA a;\n\t\ta.i = b;\n\t\t\n\t\treturn a;\n\t}\n}\n\nstruct A {\n\tint i;\n}\n\nalias bar = int;\n\nint main() {\n\tS s;\n\t\n\treturn s.foo(16).i + 1;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 35,
+            "has_passed": true,
+            "code": "\nstruct Foo {\n\tint i;\n}\n\nstruct Bar {\n\tstatic Qux baz() {\n\t\tFoo f;\n\t\tf.i = 42;\n\t\t\n\t\treturn f;\n\t}\n\t\n\talias Qux = Foo;\n}\n\nint main() {\n\treturn Bar.baz().i;\n}\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 36,
+            "has_passed": false,
+            "code": "\nstruct S {\n\tint i;\n\tint j;\n\tlong k;\n\tint f() { return i + j; }\n\talias f this;\n\tversion (SDC) alias k this;  \/\/ DMD doesn't yet implement multiple alias this declarations.\n}\n\nint foo(int i){\n\treturn i;\n}\n\nint main() {\n\tS s;\n\ts.i = 21;\n\ts.j = 21;\n\t\n\treturn foo(s);\n}\n"
+        },
+        {
+            "compiles": true,
+            "retval": 30,
+            "deps": [
+                "import test0037;\n\nstruct S {\n\talias i this;\n\tint i;\n}\n\nint foo(int* p) {\n\treturn *p + 10 + bazoooooooom();\n}\n\n"
+            ],
+            "number": 37,
+            "has_passed": false,
+            "code": "\nimport test0037_import1;\n\nalias Integer = int;\nalias SS = test0037_import1.S;\nalias bar = foo;\nalias bas = bar;\n\nint bazoooooooom() {\n  return 2;\n}\n\nInteger main() {\n  SS s;\n  s.i = 30;\n  bas(&s.i);\n\n  return s;\n}\n"
+        },
+        {
+            "compiles": true,
+            "retval": 12,
+            "deps": [],
+            "number": 38,
+            "has_passed": false,
+            "code": "\nint main() {\n\tint[] l = new int[1024];\n\tint a = 768;\n\tl[512] = 10;\n\tl[5]   = 1;\n\tl[a]   = 3;\n\t\n\treturn l[512] + l[a] - l[7 - 2];\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 39,
+            "has_passed": true,
+            "code": "\nint main() {\n\tint i = 0;\n\t\nFOO:\n\ti++;\n\tif(i != 42) {\n\t\tif(i == 27) {\n\t\t\ti = 27;\n\t\t}\n\t\t\n\t\tgoto FOO;\n\t}\n\t\n\treturn i;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 41,
+            "deps": [],
+            "number": 40,
+            "has_passed": true,
+            "code": "\nauto add(int a, int b) {\n\treturn a + b;\n}\n\nauto f() {\n\treturn cast(ulong) 64;\n}\n\nint main() {\n\tulong l = f();\n\treturn add(20, 21);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 7,
+            "deps": [
+                "struct Foo {\n\tvoid bar() {}\n}\n\n"
+            ],
+            "number": 41,
+            "has_passed": true,
+            "code": "import test0041_import1;\n\nint main() {\n\tFoo foo;\n\tfoo.bar();\n\t\n\treturn 7;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 8,
+            "deps": [
+                "class Foo {\n\tint dummy;\n\t\n\tint bar() {\n\t\treturn dummy;\n\t}\n}\n\n"
+            ],
+            "number": 42,
+            "has_passed": true,
+            "code": "\nimport test0042_import1;\n\nint main() {\n\tauto foo = new Foo();\n\tfoo.dummy = 8;\n\t\n\treturn foo.bar();\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 43,
+            "has_passed": false,
+            "code": "\nstruct S\n{\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 44,
+            "has_passed": true,
+            "code": "\nstruct S {\n\timport object;\n}\n\nint main() {\n\treturn 0;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 7,
+            "deps": [],
+            "number": 45,
+            "has_passed": true,
+            "code": "\nstruct A {\n\tint A;\n\t\n\tint foo() {\n\t\treturn A;\n\t}\n}\n\nint main() {\n\tA a;\n\t\n\treturn a.foo() + 7;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 13,
+            "deps": [],
+            "number": 46,
+            "has_passed": true,
+            "code": "\nclass Test {\n\tint i;\n\t\n\tthis() {\n\t\ti = 12;\n\t}\n\t\n\tint foo() {\n\t\treturn i + 1;\n\t}\n}\n\nint main() {\n\tauto test = new Test();\n\treturn test.foo();\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 28,
+            "deps": [],
+            "number": 47,
+            "has_passed": true,
+            "code": "\nint add(int a, int b) {\n\treturn a + b;\n}\n\nint add(int a, int b, int c) {\n\treturn a + b + c;\n}\n\nint main() {\n\treturn add(20, add(5, 2, 1));\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 48,
+            "has_passed": true,
+            "code": "\nvoid main() {}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 49,
+            "has_passed": true,
+            "code": "\nint foo() {\n\treturn 42;\n}\n\nint main() {\n\treturn test0049.foo();\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 50,
+            "has_passed": true,
+            "code": "\nint add(int a, int b) { return a + b; }\nint add(int a, int b, int c) { return a + b + c; }\n\nint main() {\n\tint function(int, int) a = &add;\n\treturn a(21, 21);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 51,
+            "has_passed": true,
+            "code": "\nint add(int a, int b) { return a + b; }\nint add(int a, int b, int c) { return a + b + c; }\n\nint foo(int function(int, int) a) {\n\treturn a(21, 21);\n}\n\nint main() {\n\treturn foo(&add);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 7,
+            "deps": [],
+            "number": 52,
+            "has_passed": true,
+            "code": "\nint main() {\n\tint i;\n\ti = 7;\n\tif (i == 7) {\n\t\tgoto _out;\n\t}\n\ti++;\n\t_out:\n\treturn i;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 8,
+            "deps": [],
+            "number": 53,
+            "has_passed": true,
+            "code": "\nint main() {\n\tint i;\n\ti = 7;\n\tgoto _out;\n\t_out:\n\ti++;\n\treturn i;\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 54,
+            "has_passed": true,
+            "code": "\nstatic assert(false, \"test 54 succeeded!\");\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 55,
+            "has_passed": true,
+            "code": "\nvoid foo() {\n\tstatic assert(false, \"test 55 succeeded!\");\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 1,
+            "deps": [],
+            "number": 56,
+            "has_passed": true,
+            "code": "\nvoid main() {\n\tassert(false, \"test 56 succeeded!\");\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 57,
+            "has_passed": true,
+            "code": "#!\/usr\/bin\/env rdmd\n\/\/ Test the script at start of document\n\nint main() {\n\treturn 42;\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [
+                "\/\/ Name collision\nmodule test0058_import1;\n\nint importedFunction() {\n\treturn 42;\n}\n\n",
+                "\/\/ Name collsion\nmodule test0058_import2;\n\nint importedFunction() {\n\treturn 42;\n}\n\n"
+            ],
+            "number": 58,
+            "has_passed": true,
+            "code": "\/\/ Name collision\n\nimport test0058_import1;\nimport test0058_import2;\n\nint main() {\n\tint a = importedFunction();\n\treturn a;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 59,
+            "has_passed": true,
+            "code": "\/\/ Tests UTF-8 characters.\n\nint åäö() { return 2; }\nint aäo() { return 20; }\nint åäo() { return 20; }\n\nint main() {\n\treturn åäö() + aäo() + åäo();\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 60,
+            "has_passed": true,
+            "code": "\/\/ Issue #25.\n\nint func1() { return 2; }\nint func2() { return 20; }\nint func3() { return 20; }\n\nint main() {\n\treturn func1() + func2() func3();\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 61,
+            "has_passed": true,
+            "code": "\nint main() {\n\tstring msg = \"hello, world!\";\n\timmutable char* cmsg = msg.ptr;\n\tassert(*cmsg == 'h');\n\t\n\tconst char* cmsg2 = cmsg + 7;\n\tassert(*cmsg2 == 'w');\n\tassert(cmsg2 != cmsg);\n\t\n\tcmsg2++;\n\tassert(*cmsg2 == 'o');\n\t\n\tcmsg2 += 2;\n\tassert(*cmsg2 == 'l');\n\t\n\tcmsg2 -= 3;\n\tassert(*cmsg2 == 'w');\n\t\n\tcmsg2--;\n\tassert(*cmsg2 == ' ');\n\t\n\tassert(cmsg2 > cmsg);\n\t\n\tconst(char)* cmsg3 = cmsg - 3;\n\tassert(cmsg3 < cmsg);\n\t\n\tcmsg3 = cmsg;\n\tassert(cmsg3 == cmsg);\n\treturn 0;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 62,
+            "has_passed": true,
+            "code": "\nint main() {\n\tstring msg = \"hello, world!\";\n\tauto cmsg = msg.ptr;\n\t\n\tstring hello = msg[0..5];\n\tassert(hello.length == 5);\n\tassert(hello[0] == 'h');\n\tassert(hello[4] == 'o');\n\t\n\tstring world = cmsg[7..13];\n\tassert(world.length == 6);\n\tassert(world[0] == 'w');\n\tassert(world[5] == '!');\n\t\n\treturn 0;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 63,
+            "has_passed": true,
+            "code": "\nint main() {\n\tassert(0b0010 == 2);\n\tassert(0xF_F == 25_5);\n\tassert(0x0FL == 15L);\n\treturn 0;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 64,
+            "has_passed": true,
+            "code": "\nint main() {\n\treturn 2 - 1 - 1;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 65,
+            "has_passed": false,
+            "code": "\/\/? desc:Test range foreach.\n\nint main() {\n\tint i = 0;\n\tforeach(j; 1 .. 5) {\n\t\ti += j;\n\t}\n\tassert(i == 10);\n\t\n\tstring str = \"foobar\";\n\tstring str2 = \"raboof\";\n\t\n\tforeach(size_t j; 0 .. str.length) {\n\t\tassert(str[j] == str2[(str2.length - j) - 1]);\n\t}\n\t\n\ti = 0;\n\tforeach(char* it; str.ptr .. str.ptr + str.length) {\n\t\tassert(*it == str[i]);\n\t\ti++;\n\t}\n\t\n\ti = 0;\n\tforeach(ref j; 1 .. 10) {\n\t\ti += j;\n\t\tif(j == 5)\n\t\t\tj = 8;\n\t}\n\tassert(i == 24);\n\t\n\t\/\/ Break.\n\ti = 0;\n\tforeach(j; 0 .. 10) {\n\t\tif (j == 5)\n\t\t\tbreak;\n\t\t\n\t\ti++;\n\t}\n\tassert(i == 5);\n\t\n\t\/\/ Continue.\n\ti = 0;\n\tforeach(j; 0 .. 10) {\n\t\tif(j < 5)\n\t\t\tcontinue;\n\t\t\n\t\ti++;\n\t}\n\tassert(i == 5);\n\treturn 0;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 66,
+            "has_passed": false,
+            "code": "\/\/? desc:Test aggregate foreach.\n\nint main() {\n\tstring str = \"foobar\";\n\tstring str2 = \"raboof\";\n\tforeach(i, c; str) {\n\t\tassert(c == str2[(str2.length - i) - 1]);\n\t}\n\t\n\tint count;\n\tforeach(char c; str) {\n\t\tif (c == 'o')\n\t\t\tcount++;\n\t}\n\tassert(count == 2);\n\t\n\tchar* mem = cast(char*)malloc(str.length);\n\tforeach(size_t i, c; str) {\n\t\tmem[i] = c;\n\t}\n\t\n\tforeach(size_t i; 0..str.length) {\n\t\tassert(mem[i] == str[i]);\n\t}\n\t\n\tforeach(i, ref char c; mem[0..3]) {\n\t\tc = 'o';\n\t}\n\t\n\tforeach(i; 0..3) {\n\t\tassert(mem[i] == 'o');\n\t}\n\t\n\tchar last;\n\tforeach(ref i, c; mem[0..1337]) {\n\t\tlast = c;\n\t\tif (i == 5)\n\t\t\ti = 1337;\n\t}\n\tassert(last == 'r');\n\t\n\t\/\/ Break.\n\tforeach(ref c; mem[0..str.length]) {\n\t\tif(c == 'o')\n\t\t\tc = 'a';\n\t\telse\n\t\t\tbreak;\n\t}\n\tforeach(i; 0..3)\n\t\tassert(mem[i] == 'a');\n\tassert(mem[3] == 'b');\n\t\n\t\/\/ Continue.\n\tcount = 0;\n\tforeach(c; str) {\n\t\tif (c != 'o')\n\t\t\tcontinue;\n\t\t\n\t\tcount++;\n\t}\n\tassert(count == 2);\n\treturn 0;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 67,
+            "has_passed": false,
+            "code": "\nint main() {\n\tstring str = \"foobar\";\n\tstring str2 = \"raboof\";\n\t\n\tint count = 0;\n\tfor(int i = 0; i < 10; i++)\n\t\tcount++;\n\t\n\tassert(count == 10);\n\t\n\tptrdiff_t i = str.length - 1;\n\tptrdiff_t j = 0;\n\tfor(; i > -1; i--) {\n\t\tassert(str[i] == str2[j]);\n\t\tj++;\n\t}\n\t\n\t\/\/ Break.\n\ti = 0;\n\tfor(;;) {\n\t\tif(i == 10)\n\t\t\tbreak;\n\t\telse\n\t\t\t++i;\n\t}\n\tassert(i == 10);\n\t\n\t\/\/ Continue.\n\ti = 0;\n\tj = 0;\n\tfor(i = 0; i < 10; i++) {\n\t\tif(i > 5)\n\t\t\tcontinue;\n\t\t++j;\n\t}\n\tassert(i == 10);\n\tassert(j == 6);\n\treturn 0;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 6,
+            "deps": [],
+            "number": 68,
+            "has_passed": true,
+            "code": "\/\/? desc:Various cases for comments.\n\nint main()\n{\n\/\/      return 21;\n\n\/\/ \/\/   return 31;\n\n        string a = \/+ \"+\/\" +\/ 1\";\n        string c = \/* \"*\/\" *\/ 1\";\n        int    d = 1 + \/* 2 *\/ + \/+ 3 +\/ \/\/ 4\n                   + 5;\n\/*\n        return 22;\n*\/\n\n\/*      return 23; *\/\n\n\/* \/*   return 32; *\/\n\n\/+\n        return 24;\n+\/\n\n\/+      return 25; +\/\n\n\/+ \/+   return 33; +\/ +\/\n\n\/\/ \/*   return 26; *\/\n\/\/ \/+   return 27; *\/\n\n\/* \/\/   return 28; *\/\n\/* \/\/   return 28; *\/\n\n\/*\n     \/\/ return 29;\n*\/\n\n\/*\n     \/* return 34;\n*\/\n\n\/*\n     \/+ return 35;\n*\/\n\n\/+\n     \/\/ return 30;   \n+\/\n\n\/+\n     \/* return 36;\n+\/\n\n        return d;\n}\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 69,
+            "has_passed": false,
+            "code": "\/\/? desc:Disallow implicit conversion between function pointers of different calling convention.\n\nextern(C) void foo(int a) {}\n\nint main() {\n\ttypeof(&foo) ok = &foo;\n\tvoid function(int) bad = &foo;\n\treturn 0;\n}\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 70,
+            "has_passed": true,
+            "code": "\/\/? desc:Test the do-while loop.\n\nint main() {\n\tint i = 0;\n\tdo {\n\t\ti++;\n\t} while(i > 10); \/\/ Should run once.\n\tassert(i == 1);\n\t\n\tdo i--;\n\twhile(i > -10);\n\tassert(i == -10);\n\t\n\t\/\/ Break.\n\ti = 0;\n\tdo {\n\t\ti++;\n\t\tif(i == 5)\n\t\t\tbreak;\n\t} while(i < 10);\n\tassert(i == 5);\n\t\n\t\/\/ Continue.\n\ti = 0;\n\tint j = 0;\n\tdo {\n\t\ti++;\n\t\tif(i > 5)\n\t\t\tcontinue;\n\t\tj++;\n\t} while(i < 10);\n\tassert(j == 5);\n\treturn 0;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 71,
+            "has_passed": true,
+            "code": "\/\/? desc:Test the while loop.\n\nint main() {\n\tint i = 0;\n\twhile(i < 10)\n\t\ti++;\n\t\n\tassert(i == 10);\n\t\n\t\/\/ Break.\n\ti = 0;\n\twhile(i < 10) {\n\t\ti++;\n\t\tif(i == 5)\n\t\t\tbreak;\n\t}\n\tassert(i == 5);\n\t\n\t\/\/ Continue.\n\ti = 0;\n\tint j = 0;\n\twhile(i < 10) {\n\t\ti++;\n\t\tif(i > 5)\n\t\t\tcontinue;\n\t\tj++;\n\t}\n\tassert(j == 5);\n\treturn 0;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 4,
+            "deps": [],
+            "number": 72,
+            "has_passed": true,
+            "code": "\ntemplate Foo(T) {\n\tT bar;\n}\n\nint main() {\n\tFoo!int.bar = 4;\n\treturn Foo!int.bar;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 73,
+            "has_passed": true,
+            "code": "\nint main() {\n\treturn 0;\n}\n\/*\/**\/\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 74,
+            "has_passed": true,
+            "code": "\/\/? desc:Test a basic switch.\n\nint transmogrify(int input) {\n\tint output;\n\tswitch (input) {\n\t\tdefault:\n\t\t\toutput = 0;\n\t\t\treturn output;\n\t\tcase 1:\n\t\t\toutput = 10;\n\t\t\tbreak;\n\t\tcase 2:\n\t\t\toutput = 20;\n\t\t\tbreak;\n\t\tcase 3:\n\t\t\toutput = 0;\n\t\t\twhile(true) {\n\t\t\t\t++output;\n\t\t\t\tif (output == 30)\n\t\t\t\t\tbreak;\n\t\t\t}\n\t\t\tbreak;\n\t}\n\treturn output;\n}\n\nint main() {\n\tbool didRun = false;\n\tswitch(0) {\n\t\tdidRun = true;\n\t\tdefault:\n\t}\n\tassert(!didRun);\n\t\n\tswitch(0) { \/\/ Should not cause any warnings.\n\t\tcase 0:\n\t\t\tdidRun = true;\n\t\t\tbreak;\n\t\tdefault:\n\t\t\tbreak;\n\t}\n\t\n\tassert(didRun);\n\t\n\tassert(transmogrify(1) == 10);\n\tassert(transmogrify(2) == 20);\n\tassert(transmogrify(3) == 30);\n\tassert(transmogrify(4) == 0);\n\treturn transmogrify(128);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 75,
+            "has_passed": true,
+            "code": "\/\/? desc:Test goto case multiple cases in case list.\n\nint transmogrify(int input) {\n\tint output = 0;\n\tswitch (input) {\n\t\tcase 0, 1:\n\t\t\tif (input == 0)\n\t\t\t\tgoto case;\n\t\t\telse\n\t\t\t\toutput++;\n\t\t\tgoto case;\n\t\tcase 2:\n\t\t\toutput += 5;\n\t\t\tgoto case;\n\t\tcase 3:\n\t\t\toutput += 5;\n\t\t\tbreak;\n\t\tcase 4, 5, 6:\n\t\t\tgoto default;\n\t\tcase 7:\n\t\tcase 8:\n\t\t\toutput += 20;\n\t\t\tbreak;\n\t\tdefault:\n\t\t\treturn -1;\n    }\n\treturn output;\n}\n\nint main() {\n\tbool defaultRan = false;\n\tswitch(0) {\n\t\tdefault:\n\t\t\tdefaultRan = true;\n\t\t\tbreak;\n\t\tcase 0:\n\t\t\tgoto default;\n\t}\n\tassert(defaultRan);\n\t\n\tassert(transmogrify(0) == 10);\n\tassert(transmogrify(1) == 11);\n\t\n\tassert(transmogrify(2) == 10);\n\tassert(transmogrify(3) == 5);\n\tassert(transmogrify(7) == 20);\n\tassert(transmogrify(8) == 20);\n\t\n\tassert(transmogrify(4) == -1);\n\tassert(transmogrify(5) == -1);\n\tassert(transmogrify(6) == -1);\n\tassert(transmogrify(128) == -1);\n\treturn 0;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 76,
+            "has_passed": false,
+            "code": "\/\/? desc:Test case range statements.\n\nint transmogrify(int input) {\n\tswitch(input) {\n\t\tcase 0:\n\t\t\treturn 1;\n\t\tcase 1: .. case 10:\n\t\t\treturn 2;\n\t\tcase 11:\n\t\t\treturn 3;\n\t\tcase 12: .. case 12:\n\t\t\treturn 4;\n\t\tcase 13:\n\t\t\treturn 5;\n\t\tdefault:\n\t\t\treturn 0;\n\t}\n}\n\nvoid main() {\n\tassert(transmogrify(0) == 1);\n\t\n\tforeach(i; 1 .. 11)\n\t\tassert(transmogrify(i) == 2);\n\t\n\tassert(transmogrify(11) == 3);\n\tassert(transmogrify(12) == 4);\n\tassert(transmogrify(13) == 5);\n\t\n\tassert(transmogrify(14) == 0);\n\tassert(transmogrify(15) == 0);\n}\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 77,
+            "has_passed": false,
+            "code": "\nvoid main() {\n\tstring str = \"foobar\";\n\n    \/\/ This is narrowing, but valid.\n\tforeach(byte i, c; str) {}\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 4,
+            "deps": [],
+            "number": 78,
+            "has_passed": false,
+            "code": "\nclass Foo {\n\tvoid func1() {}\n\t\n\tvoid func2()\n\tbody {}\n\t\n\tvoid func3()\n\tin {}\n\tbody {}\n\t\n\tvoid func4()\n\tout {}\n\tbody {}\n\n\tvoid func5()\n\tout {}\n\tin {}\n\tbody {}\n\t\n\tvoid func6()\n\tin {}\n\tout {}\n\tbody {}\n}\n\nvoid func1() {}\n\nvoid func2()\nbody {}\n\nvoid func3()\nin {}\nbody {}\n\nvoid func4()\nout {}\nbody {}\n\nvoid func5()\nout {}\nin {}\nbody {}\n\nvoid func6()\nin {}\nout {}\nbody {}\n\nint main() {\n\treturn 4;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 79,
+            "has_passed": true,
+            "code": "\nint main() {\n\tint a;\n\tauto b = &a;\n\tauto c = b;\n\tbool d = b == c;\n\treturn 0;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 8,
+            "deps": [],
+            "number": 80,
+            "has_passed": true,
+            "code": "\nalias bar = int;\n\nint main() {\n\treturn cast(int) ((int).sizeof + (bar).sizeof);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 35,
+            "deps": [],
+            "number": 81,
+            "has_passed": false,
+            "code": "\n@property\nint triple(int a) {\n\treturn a * 3;\n}\n\nint foo() @property {\n\treturn 2;\n}\n\nint main() {\n\tint a = 11;\n\treturn a.triple + foo;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 65,
+            "deps": [],
+            "number": 82,
+            "has_passed": true,
+            "code": "\nint main() {\n\tubyte[123] arr;\n\tauto p = &arr[0];\n\t*p++ = cast(ubyte) 'A';\n\treturn arr[0];\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 83,
+            "has_passed": false,
+            "code": ""
+        },
+        {
+            "compiles": true,
+            "retval": 8,
+            "deps": [],
+            "number": 84,
+            "has_passed": true,
+            "code": "\nint main() {\n\tauto foobar = 0x80000000;\n\treturn foobar.sizeof;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 23,
+            "deps": [],
+            "number": 85,
+            "has_passed": false,
+            "code": "\nstring s1 = \"some string\";\n\nint main() {\n\tstring s2 = \"other string\";\n\treturn cast(int) ((s1 ~ s2).length);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 86,
+            "has_passed": true,
+            "code": "\nint foobar = 42;\n\nint main() {\n\treturn foobar;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 87,
+            "has_passed": true,
+            "code": "\nint main() {\n\tint a = 42;\n\tint b = 0;\n\t\n\twhile(a > 0) {\n\t\ta--;\n\t\tb++;\n\t}\n\t\n\treturn b;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 88,
+            "has_passed": true,
+            "code": "\nint main() {\n\tint a = 42;\n\tint b = -14;\n\t\n\twhile(a) {\n\t\ta--;\n\t\t\n\t\tif(a % 3) {\n\t\t\tb += 2;\n\t\t}\n\t}\n\t\n\treturn b;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 18,
+            "deps": [],
+            "number": 89,
+            "has_passed": true,
+            "code": "\nint main() {\n\tint a = 19;\n\t\n\tdo {\n\t\ta--;\n\t} while(a > 20);\n\t\n\treturn a;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 11,
+            "deps": [],
+            "number": 90,
+            "has_passed": true,
+            "code": "\nint main() {\n\tint b;\n\t\n\tfor(int a = 1; a < 10; a--) {\n\t\ta += 4;\n\t\tb = a;\n\t}\n\t\n\treturn b;\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 91,
+            "has_passed": true,
+            "code": "\nint main() {\n\tfor(int a = 1; a < 10; a++) {\n\t\ta++;\n\t}\n\t\n\treturn a;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 92,
+            "has_passed": true,
+            "code": "\nint main() {\n\tint a = 3;\n\t\n\t{\n\t\tint b = 5;\n\t\t\n\t\tb = a * b;\n\t\ta = b + a;\n\t}\n\t\n\t{\n\t\tint b;\n\t\t\n\t\tb = a + b;\n\t\ta = b + 24;\n\t}\n\t\n\treturn a;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 4,
+            "deps": [],
+            "number": 93,
+            "has_passed": true,
+            "code": "\nint main() {\n\talias foo = int;\n\t\n\treturn foo.sizeof;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 94,
+            "has_passed": true,
+            "code": "\nstruct S {\n\tint c, d;\n}\n\nint main() {\n\tS s;\n\ts.c = s.d = 1;\n\t\n\tint c = 40;\n\t\n\treturn c + s.c + s.d;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 12,
+            "deps": [],
+            "number": 95,
+            "has_passed": true,
+            "code": "\ntemplate Foo(T) {\n\tT bar;\n}\n\nint main() {\n\tFoo!int.bar = 4;\n\tFoo!long.bar = 2 * Foo!int.bar;\n\t\n\tFoo!int.bar = 4 + cast(typeof(Foo!int.bar)) (Foo!long.bar + Foo!ulong.bar);\n\t\n\treturn Foo!int.bar;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 12,
+            "deps": [],
+            "number": 96,
+            "has_passed": true,
+            "code": "\ntemplate Foo(T) {\n\tT Foo;\n}\n\nint main() {\n\tFoo!int = 4;\n\tFoo!long = 2 * Foo!int;\n\t\n\tFoo!int = 4 + cast(typeof(Foo!int)) (Foo!long + Foo!bool);\n\t\n\treturn Foo!int;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 97,
+            "has_passed": true,
+            "code": "\/\/ Tests implicit cast for function parameters.\n\nint add(long a, ulong b) {\n\treturn cast(int) (a + b);\n}\n\nint main() {\n\tint a = 25;\n\tint b = 2;\n\t\n\treturn add(-12, add(add(a, b), add(b, a)));\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 98,
+            "has_passed": true,
+            "code": "\nalias Buzz = Fizz;\n\nstruct Bar {\n\tstatic auto baz() {\n\t\tQux f;\n\t\tf.i = 42;\n\t\treturn f;\n\t}\n\t\n\talias Qux = Baz;\n}\n\nalias Baz = Foo;\n\nstruct Foo {\n\tBuzz i;\n}\n\nalias Fizz = int;\n\nint main() {\n\treturn Bar.baz().i;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 12,
+            "deps": [],
+            "number": 99,
+            "has_passed": true,
+            "code": "\nint main() {\n\treturn Foo!Bar.baz + Foo!Fizz.get7();\n}\n\ntemplate Foo(T) {\n\tT Foo;\n}\n\nstruct Fizz {\n\tQux!Bar buzz;\n\t\n\tauto get7() {\n\t\treturn buzz.baz + 2;\n\t}\n}\n\nstruct Bar {\n\tQux!int baz = 5;\n}\n\ntemplate Qux(T) {\n\talias Qux = T;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 100,
+            "has_passed": true,
+            "code": "\nint main() {\n\tauto a = foo!bool() + foo!byte() + foo!ushort() + foo!int() + foo!float();\n\tassert(a == 10);\n\t\n\ta += foo!char();\n\t\n\tauto b = foo!long() + foo!double();\n\t\n\tassert(b == 30);\n\t\n\treturn a + b;\n}\n\nuint foo(T)() {\n\tstatic if(buzz(T.sizeof)) {\n\t\treturn 15;\n\t} else {\n\t\treturn 2;\n\t}\n}\n\nbool buzz(size_t sizeof) {\n\tif(sizeof > 4) {\n\t\treturn true;\n\t} else {\n\t\treturn false;\n\t}\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 101,
+            "has_passed": true,
+            "code": "\nint main() {\n\tauto a = foo!bool() + foo!byte() + foo!ushort() + foo!int() + foo!float();\n\tassert(a == 40);\n\t\n\ta += foo!char();\n\t\n\tauto b = foo!long() + foo!double();\n\tassert(b == 512);\n\t\n\treturn a + b;\n}\n\nuint foo(T)() {\n\tstatic if(buzz(T.sizeof) > 10) {\n\t\tuint ret = buzz(T.sizeof);\n\t\treturn ret;\n\t} else {\n\t\tuint ret = T.sizeof \/ 2;\n\t\treturn (ret + 1) * 2;\n\t}\n}\n\nuint buzz(size_t sizeof) {\n\tuint ret = 1;\n\tfor(uint i = 0; i < sizeof; ++i) {\n\t\tret *= 2;\n\t}\n\t\n\treturn ret;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 102,
+            "has_passed": true,
+            "code": "\nint main() {\n\tauto a = Foo!bool + Foo!byte + Foo!ushort + Foo!int + Foo!float;\n\tassert(a == 10);\n\t\n\ta += Foo!char;\n\t\n\tauto b = Foo!long + Foo!double;\n\t\n\tassert(b == 30);\n\t\n\treturn a + b;\n}\n\ntemplate Foo(T) {\n\tstatic if(buzz(T.sizeof)) {\n\t\tenum Foo = 15;\n\t} else {\n\t\tenum Foo = 2;\n\t}\n}\n\nbool buzz(size_t sizeof) {\n\tif(sizeof > 4) {\n\t\treturn true;\n\t} else {\n\t\treturn false;\n\t}\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 103,
+            "has_passed": true,
+            "code": "\nmixin(\"auto foo() { return 12; }\");\n\nint main() {\n\treturn foo() + bar!uint(30);\n}\n\nstring getStringMixin() {\n\treturn \"T bar(T)(T t) { mixin(\\\"return t;\\\"); }\";\n}\n\nmixin(getStringMixin());\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 104,
+            "has_passed": true,
+            "code": "\/\/ Test creation of delegates from member function.\n\nstruct S {\n\tint i;\n\tT t;\n\t\n\tauto add(int a) {\n\t\tt.i = a + i;\n\t\treturn t.add;\n\t}\n}\n\nstruct T {\n\tint i;\n\tint add(int a) {\n\t\treturn i + a;\n\t}\n}\n\nint main() {\n\tS s;\n\ts.i = s.t.i = 1;\n\tauto dg1 = s.add;\n\tauto dg2 = dg1(34);\n\treturn dg2(7);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 105,
+            "has_passed": true,
+            "code": "\/\/ Test creation of delegates from member function.\n\nstruct S {\n\tint i;\n\tT t;\n\t\n\tauto add(int a) {\n\t\tt.i = a + i;\n\t\treturn t.add;\n\t}\n}\n\nstruct T {\n\tint i;\n\tint add(int a) {\n\t\treturn i + a;\n\t}\n}\n\nint main() {\n\tS s;\n\ts.i = s.t.i = 1;\n\t\n\treturn s.add(34)(7);\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 106,
+            "has_passed": true,
+            "code": "\nint main() {\n\treturn foo();\n}\n\nint foo() {\n\treturn 3;\n}\n\nstatic if(foo() == 3) {\n\tint foo(int i) {\n\t\treturn i;\n\t}\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 107,
+            "has_passed": true,
+            "code": "\nint main() {\n\treturn 42;\n}\n\nstring foo() {\n\treturn \"int foo(int i) { return i; }\";\n}\n\nmixin(foo());\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 108,
+            "has_passed": true,
+            "code": "\nint main() {\n\treturn foo(42);\n}\n\nstring foo() {\n\treturn bar();\n}\n\nmixin(bar());\n\nstring bar() {\n\treturn \"int foo(int i) { return i; }\";\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 109,
+            "has_passed": true,
+            "code": "\nint foo(char* p) {\n\tif(*p == '\\0') {\n\t\treturn 0;\n\t}\n\t\n\tswitch(*p) {\n\t\tcase 'i' :\n\t\t\tp++;\n\t\t\tif(*p == '\\0') {\n\t\t\t\treturn 1;\n\t\t\t}\n\t\t\t\n\t\t\tswitch(*p) {\n\t\t\t\tcase 'f' :\n\t\t\t\t\treturn 2;\n\t\t\t\t\n\t\t\t\tcase 's' :\n\t\t\t\t\treturn 3;\n\t\t\t\t\n\t\t\t\tdefault :\n\t\t\t\t\treturn 42;\n\t\t\t}\n\t\t\n\t\tdefault :\n\t\t\treturn 1;\n\t}\n}\n\nint main() {\n\tchar[3] str;\n\tstr[0] = 'i';\n\tstr[1] = 'g';\n\tstr[2] = '\\0';\n\t\n\treturn foo(&str[0]);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 110,
+            "has_passed": true,
+            "code": "\/\/ Test recurence.\n\nint main() {\n\treturn fact(4) + fact(5) \/ fact(3) - fact(2);\n}\n\nint fact(int n) {\n\tif(n < 2) {\n\t\treturn 1;\n\t}\n\t\n\treturn n * fact(n - 1);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 111,
+            "has_passed": true,
+            "code": "\/\/ Test function overloads.\n\nint main() {\n\tbyte b;\n\tshort s;\n\tint i;\n\tlong l;\n\t\n\tassert(foo(b) == 1);\n\tassert(foo(s) == 2);\n\tassert(foo(i) == 3);\n\tassert(foo(42) == 3);\n\tassert(foo(l) == 4);\n\t\n\treturn 0;\n}\n\nint foo(byte b) {\n\treturn 1;\n}\n\nint foo(short s) {\n\treturn 2;\n}\n\nint foo(int i) {\n\treturn 3;\n}\n\nint foo(long l) {\n\treturn 4;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 112,
+            "has_passed": true,
+            "code": "\/\/ Test exclusion of invalid ref overloads.\n\nint main() {\n\treturn foo(0);\n}\n\nint foo(ref int i) {\n\treturn 3;\n}\n\nint foo(long l) {\n\treturn 42;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 113,
+            "has_passed": true,
+            "code": "\/\/ Test ref overloads.\n\nint main() {\n\tint i = -1;\n\treturn foo(i) + foo(30);\n}\n\nint foo(ref int i) {\n\treturn i + 3;\n}\n\nint foo(int i) {\n\treturn i + 10;\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 114,
+            "has_passed": true,
+            "code": "\/\/ Test ref overloads.\n\nint main() {\n\tint i, j;\n\treturn foo(i, j);\n}\n\nint foo(ref int i, int j) {\n\treturn 0;\n}\n\nint foo(int i, ref int j) {\n\treturn 0;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 17,
+            "deps": [],
+            "number": 115,
+            "has_passed": true,
+            "code": "\/\/ Test overloads priority.\n\nint main() {\n\tint i, j;\n\treturn foo(i, j);\n}\n\nint foo(long i, long j) {\n\treturn 23;\n}\n\nint foo(long i, int j) {\n\treturn 17;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 116,
+            "has_passed": true,
+            "code": "\/\/ Test virtual dispatch.\n\nint main() {\n\tA a = new A();\n\treturn a.foo();\n}\n\nclass A {\n\tint foo() {\n\t\treturn 42;\n\t}\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 117,
+            "has_passed": true,
+            "code": "\/\/ Test invalid override.\n\nint main() {\n\treturn 0;\n}\n\nclass A {\n\tint foo() {\n\t\treturn 3;\n\t}\n}\n\nclass B : A {\n\toverride long foo() {\n\t\treturn 7;\n\t}\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 118,
+            "has_passed": true,
+            "code": "\/\/ Test invalid override.\n\nint main() {\n\treturn 0;\n}\n\nclass A {\n\tvoid foo(int a) {}\n}\n\nclass B : A {\n\toverride void foo(long a) {}\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 119,
+            "has_passed": true,
+            "code": "\/\/ Test invalid override.\n\nint main() {\n\treturn 0;\n}\n\nclass A {\n\tvoid foo(int a) {}\n}\n\nclass B : A {\n\toverride void bar(int a) {}\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 120,
+            "has_passed": true,
+            "code": "\/\/ Test implicit override error.\n\nint main() {\n\treturn 0;\n}\n\nclass A {\n\tvoid foo(int a) {}\n}\n\nclass B : A {\n\tvoid foo(int a) {}\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 121,
+            "has_passed": true,
+            "code": "\/\/ Test virtual dispatch.\n\nint main() {\n\tA a = new B();\n\treturn a.foo();\n}\n\nclass A {\n\tint a = 15;\n\t\n\tint foo() {\n\t\treturn a;\n\t}\n}\n\nclass B : A {\n\tint b = 27;\n\t\n\toverride int foo() {\n\t\treturn a + b;\n\t}\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 58,
+            "deps": [],
+            "number": 122,
+            "has_passed": true,
+            "code": "\nint bar(int n) {\n\tswitch(n) {\n\t\tcase 0:\n\t\t\treturn -9; \/\/ Bad case !\n\t\t\n\t\tcase 25:\n\t\t\treturn 75;\n\t\t\n\t\tcase 42:\n\t\t\treturn 69;\n\t\t\n\t\tcase 666:\n\t\t\treturn 999;\n\t\t\n\t\tdefault:\n\t\t\treturn -1;\n\t}\n}\n\nint foo(int n) {\n\tif(n == 0) {\n\t\treturn bar(n);\t\n\t}\n\t\n\tswitch(n) {\n\t\tcase 1:\n\t\t\treturn 23;\n\t\n\t\tcase 2:\n\t\tcase 3:\n\t\t\treturn n;\n\t\t\n\t\tdefault:\n\t\t\treturn bar(n);\n\t}\n}\n\nint main() {\n\treturn foo(0) + foo(42) - foo(2);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 123,
+            "has_passed": true,
+            "code": "\/\/ Test forward reference in enums.\n\nenum Foo {\n\tFizz,\n\tPion,\n\tBar = Baz + Pion,\n\tBaz = Buzz - Fizz,\n\tQux = 40,\n\tBuzz,\n}\n\nint main() {\n\treturn Foo.Bar;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 124,
+            "has_passed": true,
+            "code": "\/\/ Test correct generation of temporary.\n\nint main() {\n\tint[16] ii;\n\tint i = 12;\n\t\n\tii[++i] = i;\n\tii[i++] += i;\n\t\n\t(*(&ii[i--] - 1)) += 2;\n\t\n\treturn ii[i] + i;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 9,
+            "deps": [],
+            "number": 125,
+            "has_passed": true,
+            "code": "\/\/ Test template specialisation.\n\ntemplate Foo(T : T*) {\n\tenum Foo = T.sizeof;\n}\n\nint main() {\n\treturn Foo!(char*) + Foo!(long*);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 25,
+            "deps": [],
+            "number": 126,
+            "has_passed": true,
+            "code": "\/\/ Test template argument deduction.\n\ntemplate Foo(T : U[], U) {\n\tenum Foo = U.sizeof;\n}\n\nint main() {\n\treturn Foo!(long[]) + Foo!string + Foo!(string[]);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 13,
+            "deps": [],
+            "number": 127,
+            "has_passed": true,
+            "code": "\/\/ Test template overload on specialisation.\n\ntemplate Foo(T) {\n\tenum Foo = T.sizeof;\n}\n\ntemplate Foo(T : T*) {\n\tenum Foo = T.sizeof;\n}\n\ntemplate Foo(T : T[]) {\n\tenum Foo = T.sizeof;\n}\n\nint main() {\n\treturn Foo!(int*) + Foo!(long[]) + Foo!char;\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 128,
+            "has_passed": true,
+            "code": "\/\/ Test invalid specialisation.\n\ntemplate Qux(T : U*, U : V*, V) {\n\tenum Qux = T.sizeof + V.sizeof;\n}\n\nint main() {\n\treturn Qux!(float**, int*);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 129,
+            "has_passed": true,
+            "code": "\/\/ Test IFTI with explicit and implicit parameter.\n\nint foo()(int i) {\n\treturn i + bar!int(13);\n}\n\ntemplate Qux(T : U*, U) {\n\tuint Qux = T.sizeof + U.sizeof;\n}\n\nauto bar(T)(T t) {\n\treturn t;\n}\n\nint main() {\n\tauto a = Qux!(float*);\n\tassert(a == 12);\n\t\n\ta += Qux!(int*, int);\n\tassert(a == 24);\n\t\n\treturn foo(a) + bar(5);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 56,
+            "deps": [],
+            "number": 130,
+            "has_passed": true,
+            "code": "\/\/ Test IFTI with explicit parameter and conversion.\n\nint foo()(int i) {\n\treturn i + cast(int) bar!long(i);\n}\n\nauto bar(T)(T t) {\n\treturn T.sizeof + buzz(&t) + t;\n}\n\nauto buzz(T)(T* t) {\n\treturn (*t)++;\n}\n\nauto qux(T : U*, U)(T t) {\n\treturn buzz(t) + *t + U.sizeof;\n}\n\nint main() {\n\tint a = 5;\n\t\n\treturn buzz(&a) + foo(a) + bar(1) + qux(&a);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 131,
+            "has_passed": true,
+            "code": "\/\/ Test multiple argument IFTI.\n\nauto foo(T, U)(T t, U u) {\n\treturn t + T.sizeof + u + U.sizeof;\n}\n\nint main() {\n\treturn foo('A', -28);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 132,
+            "has_passed": true,
+            "code": "\/\/ Test IFTI with partial instanciation.\n\nauto foo(T, U)(T t, U u) {\n\treturn t + T.sizeof + u + U.sizeof;\n}\n\nint main() {\n\treturn cast(int) foo!long('A', -35);\n}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 133,
+            "has_passed": true,
+            "code": "\/\/ Forbiden method name.\n\nstruct Foo {\n\tvoid __ctor() {}\n}\n\nvoid main() {}\n\n"
+        },
+        {
+            "compiles": false,
+            "retval": 0,
+            "deps": [],
+            "number": 134,
+            "has_passed": true,
+            "code": "\/\/ Forbiden method name.\n\nstruct Foo {\n\tvoid __dtor() {}\n}\n\nvoid main() {}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 135,
+            "has_passed": true,
+            "code": "\/\/ Constructor.\n\nstruct Foo {\n\tint i;\n\t\n\tthis(int i) {\n\t\tthis.i = i;\n\t}\n\t\n\tauto bar() {\n\t\treturn i;\n\t}\n}\n\nint main() {\n\tauto f = Foo(42);\n\treturn f.bar();\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 136,
+            "has_passed": true,
+            "code": "\/\/ Method overload.\n\nstruct Foo {\n\tint i;\n\t\n\tthis(int i) {\n\t\tthis.i = i;\n\t}\n\t\n\tauto bar(int j) {\n\t\treturn i + j;\n\t}\n\t\n\tint bar() {\n\t\treturn bar(-5);\n\t}\n}\n\nint main() {\n\tauto f = Foo(47);\n\treturn f.bar();\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 137,
+            "has_passed": true,
+            "code": "\/\/ Constructor forwarding.\n\nstruct Foo {\n\tint i;\n\tint j;\n\t\n\tthis(int i) {\n\t\tthis(i, 31);\n\t}\n\t\n\tthis(int i, int j) {\n\t\tthis.i = i;\n\t\tthis.j = j;\n\t}\n\t\n\tauto bar() {\n\t\treturn i + j;\n\t}\n}\n\nint main() {\n\tauto f = Foo(11);\n\treturn f.bar();\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 138,
+            "has_passed": true,
+            "code": "\/\/ Newing structs.\n\nstruct Foo {\n\tint i;\n\tint j;\n\t\n\tthis(int i, int j) {\n\t\tthis.i = i;\n\t\tthis.j = j;\n\t}\n\t\n\tauto bar(int k) {\n\t\treturn i + j + k;\n\t}\n}\n\nint main() {\n\tauto f = new Foo(12, 35);\n\treturn f.bar(-5);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 139,
+            "has_passed": true,
+            "code": "\/\/ Constructor forwarding.\n\nclass Foo {\n\tint i;\n\tint j;\n\t\n\tthis(int i) {\n\t\tthis(i, 31);\n\t}\n\t\n\tthis(int i, int j) {\n\t\tthis.i = i;\n\t\tthis.j = j;\n\t}\n\t\n\tauto bar() {\n\t\treturn i + j;\n\t}\n}\n\nint main() {\n\tauto f = new Foo(11);\n\treturn f.bar();\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 35,
+            "deps": [],
+            "number": 140,
+            "has_passed": true,
+            "code": "\/\/ Scope exit.\n\nint a = 10;\n\nint foo() {\n\ta++;\n\tscope(exit) a *= 2;\n\t\n\treturn a++;\n}\n\nint main() {\n\treturn foo() + a;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 18,
+            "deps": [],
+            "number": 141,
+            "has_passed": true,
+            "code": "\/\/ Scope exit that returns.\n\nint a = 10;\n\nint foo() {\n\tscope(exit) a = 7;\n\tscope(exit) return a;\n\t\n\treturn a++;\n}\n\nint main() {\n\treturn foo() + a;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 142,
+            "has_passed": true,
+            "code": "\/\/ Scope exit with nested blocks.\n\nint a = 10;\n\nint foo() {\n\tscope(exit) a = 11;\n\t\n\t{\n\t\tauto b = a;\n\t\tscope(exit) a = a * 3 + b;\n\t\t\n\t\ta = 7;\n\t}\n\t\n\treturn a;\n}\n\nint main() {\n\treturn foo() + a;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 43,
+            "deps": [],
+            "number": 143,
+            "has_passed": true,
+            "code": "\/\/ Scope exit with conditional blocks.\n\nint a = 9;\n\nint foo(bool fi) {\n\tscope(exit) a = 11;\n\t\n\tauto b = a;\n\tif(fi) {\n\t\ta = 7;\n\t\treturn a + b;\n\t}\n\t\n\ta = 5;\n\treturn a + b;\n}\n\nint main() {\n\treturn foo(true) + foo(false) + a;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 123,
+            "deps": [],
+            "number": 144,
+            "has_passed": true,
+            "code": "\/\/ Scope exit with loops, break and continues.\n\nint main() {\n\tuint a;\n\tfor(int i = 0; i < 5; i++) {\n\t\tassert(a == i);\n\t\t\n\t\tscope(exit) a++;\n\t\tassert(a == i);\n\t\t\n\t\ta = i;\n\t\tassert(a == i);\n\t}\n\t\n\tassert(a == 5);\n\t\n\twhile(true) {\n\t\tscope(exit) a = 23;\n\t\tbreak;\n\t}\n\t\n\tassert(a == 23);\n\t\n\tdo {\n\t\tscope(exit) a--;\n\t\t\n\t\tif(a > 10) continue;\n\t\tbreak;\n\t} while(true);\n\t\n\tassert(a == 9);\n\t\n\twhile(true) scope(exit) return 123;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 145,
+            "has_passed": true,
+            "code": "\/\/ typeid.\n\nclass A {}\nclass B : A {}\n\nvoid main() {\n\tObject a = new A();\n\tObject b = new B();\n\t\n\tassert(typeid(a) !is typeid(b));\n\tassert(typeid(typeof(a)) is typeid(typeof(b)));\n\tassert(typeid(a) !is typeid(typeof(b)));\n\tassert(typeid(typeof(a)) !is typeid(b));\n\t\n\tb = new A();\n\t\n\tassert(a !is b);\n\tassert(typeid(a) is typeid(b));\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 146,
+            "has_passed": true,
+            "code": "\/\/ downcast\n\nclass A {}\nclass B : A {}\n\nvoid main() {\n\tObject a = new A();\n\tObject b = new B();\n\t\n\tauto a1 = cast(A) a;\n\tauto a2 = cast(B) a;\n\t\n\tassert(a1 is a);\n\tassert(a2 is null);\n\t\n\tauto b1 = cast(A) b;\n\tauto b2 = cast(B) b;\n\t\n\tassert(b1 is b);\n\tassert(b2 is b);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 0,
+            "deps": [],
+            "number": 147,
+            "has_passed": true,
+            "code": "\/\/ bitwize operations\n\nvoid main() {\n\tuint i = 1;\n\t\n\tassert((i << 2) == 4);\n\tassert((i >> 1) == 0);\n\tassert((i & 2) == 0);\n\tassert((i | 2) == 3);\n\tassert((i ^ 3) == 2);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 1,
+            "deps": [],
+            "number": 148,
+            "has_passed": true,
+            "code": "\/\/ Throw\n\nint main() {\n\tthrow new Exception();\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 19,
+            "deps": [],
+            "number": 149,
+            "has_passed": true,
+            "code": "\/\/ Catch\n\nint main() {\n\ttry {\n\t\tthrow new Exception();\n\t} catch(Error e) {\n\t\treturn 23;\n\t} catch(Exception e) {\n\t\treturn 19;\n\t} catch(Throwable e) {\n\t\treturn 13;\n\t}\n\t\n\treturn 42;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 6,
+            "deps": [],
+            "number": 150,
+            "has_passed": true,
+            "code": "\/\/ Catch\n\nauto a = 5;\n\nvoid foo() {\n\tscope(exit) a++;\n\tthrow new Exception();\n}\n\nint main() {\n\ttry {\n\t\tfoo();\n\t} catch(Exception e) {\n\t\treturn a;\n\t}\n\t\n\treturn 0;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 9,
+            "deps": [],
+            "number": 151,
+            "has_passed": true,
+            "code": "\/\/ Catch\n\nauto a = 7;\n\nvoid foo() {\n\ttry {\n\t\tthrow new Exception();\n\t} catch(Exception e) {\n\t\ta += 2;\n\t\tthrow new Exception();\n\t}\n}\n\nint main() {\n\ttry {\n\t\tfoo();\n\t} catch(Exception e) {\n\t\treturn a;\n\t}\n\t\n\treturn 0;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 36,
+            "deps": [],
+            "number": 152,
+            "has_passed": true,
+            "code": "\/\/ Closure\n\nint main() {\n\tint a = 10;\n\tint fooa() {\n\t\treturn --a;\n\t}\n\t\n\tint b = 5;\n\tint foob() {\n\t\treturn --a + b++;\n\t}\n\t\n\treturn fooa() + foob() + a++ + b--;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 36,
+            "deps": [],
+            "number": 153,
+            "has_passed": true,
+            "code": "\/\/ Closure\n\nint main() {\n\tint a = 10;\n\tint foo() {\n\t\treturn --a;\n\t}\n\t\n\treturn () {\n\t\treturn a++;\n\t}() + {\n\t\treturn a -= 2;\n\t}() + foo() + ((int b) => a + b)(1);\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 25,
+            "deps": [],
+            "number": 154,
+            "has_passed": true,
+            "code": "\/\/ template value parameter\n\nauto foo(T U, T)() {\n\treturn U + T.sizeof;\n}\n\nint main() {\n\treturn foo!true() + foo!10() + foo!I();\n}\n\nenum I = 5;\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 155,
+            "has_passed": true,
+            "code": "\/\/ Closure chaining\n\nint main() {\n\tint a = 9;\n\t\n\tauto foo() {\n\t\tint b = 11;\n\t\t\n\t\tauto bar() {\n\t\t\treturn a++ + b++;\n\t\t}\n\t\t\n\t\treturn bar() + b;\n\t}\n\t\n\treturn foo() + a;\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 36,
+            "deps": [],
+            "number": 156,
+            "has_passed": true,
+            "code": "\/\/ Closure chaining\n\nint main() {\n\tint a = 11;\n\t\n\tauto foo() {\n\t\tint b = 25;\n\t\t\n\t\tauto bar() {\n\t\t\treturn a + b;\n\t\t}\n\t\t\n\t\treturn bar;\n\t}\n\t\n\treturn foo()();\n}\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 25,
+            "deps": [],
+            "number": 157,
+            "has_passed": true,
+            "code": "\/\/ template alias parameter (value)\n\nauto foo(alias U)() {\n\treturn U + typeof(U).sizeof;\n}\n\nint main() {\n\treturn foo!true() + foo!10() + foo!I();\n}\n\nenum I = 5;\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 42,
+            "deps": [],
+            "number": 158,
+            "has_passed": true,
+            "code": "\/\/ alias of type and values\n\nalias b = a;\nalias c = 42;\nalias d = c;\nalias e = b;\n\nb main() {\n\ta b = c;\n\te f = b;\n\treturn f;\n}\n\nalias a = uint;\n\n"
+        },
+        {
+            "compiles": true,
+            "retval": 25,
+            "deps": [],
+            "number": 159,
+            "has_passed": true,
+            "code": "\/\/? desc:template typed alias parameter (value)\n\nauto foo(alias T U, T)() {\n\treturn U + T.sizeof;\n}\n\nint main() {\n\treturn foo!true() + foo!10() + foo!I();\n}\n\nenum I = 5;\n\n"
+        }
+    ]
+}

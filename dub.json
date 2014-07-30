@@ -1,0 +1,9 @@
+{
+	"name": "sdc",
+	"description": "SDC's driver",
+	"copyright": "Copyright © 2014, deadlnix",
+	"authors": ["deadlnix"],
+	"dependencies": {
+
+	}
+}
