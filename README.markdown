@@ -6,7 +6,9 @@ SDC is at the moment, particularly stupid; it is a work in progress. Feel free t
 This compiler is based on [libd](https://github.com/deadalnix/libd) for D code analysis. It uses [LLVM](http://llvm.org/) and [libd-llvm](https://github.com/deadalnix/libd-llvm) for codegen and JIT CTFE.
 
 The code is released under the MIT license (see the LICENCE file for more details).
-/*Contact me at deadalnix@gmail.com*/
+Contact the original authoer at deadalnix@gmail.com.
+
+If you have problems with my fork that don't happen on deadalnix's original repo please feel free to open issuses here 
 
 SDC require DMD release `2.065` to compile.
 
