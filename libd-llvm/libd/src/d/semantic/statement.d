@@ -27,6 +27,7 @@ alias IfStatement = d.ir.statement.IfStatement;
 alias WhileStatement = d.ir.statement.WhileStatement;
 alias DoWhileStatement = d.ir.statement.DoWhileStatement;
 alias ForStatement = d.ir.statement.ForStatement;
+alias ForeachStatement = d.ir.statement.ForeachStatement;
 alias ReturnStatement = d.ir.statement.ReturnStatement;
 alias SwitchStatement = d.ir.statement.SwitchStatement;
 alias CaseStatement = d.ir.statement.CaseStatement;
@@ -167,7 +168,23 @@ struct StatementVisitor {
 		
 		flattenedStmts[$ - 1] = new ForStatement(f.location, initialize, condition, increment, statement);
 	}
-	
+	/+
+	void visit(AstForeachStatement f) { 
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+
+		currentScope = (cast(NestedScope) oldScope).clone();
+		
+		VariableDeclaration[] varDecls; 
+		Statement statement;
+		Expression iterated;
+
+		
+		
+		
+
+	}
+	+/
 	void visit(AstReturnStatement r) {
 		import d.semantic.expression;
 		auto ev = ExpressionVisitor(pass);

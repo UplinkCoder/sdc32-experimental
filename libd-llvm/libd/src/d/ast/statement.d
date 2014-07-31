@@ -134,12 +134,12 @@ alias AstForStatement = ForStatement!(AstExpression, AstStatement);
 /**
  * for statements
  */
-class ForeachStatement : AstStatement {
+class ForeachStatement (E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
 	VariableDeclaration[] tupleElements;
-	AstExpression iterrated;
-	AstStatement statement;
+	E iterrated;
+	S statement;
 	
-	this(Location location, VariableDeclaration[] tupleElements, AstExpression iterrated, AstStatement statement) {
+	this(Location location, VariableDeclaration[] tupleElements, E iterrated, S statement) {
 		super(location);
 		
 		this.tupleElements = tupleElements;
@@ -147,7 +147,8 @@ class ForeachStatement : AstStatement {
 		this.statement = statement;
 	}
 }
-
+alias AstForeachStatement = ForeachStatement!(AstExpression,AstStatement);
+	
 /**
  * return statements
  */

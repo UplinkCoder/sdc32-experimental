@@ -146,9 +146,9 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 				
 				trange.match(Identifier);
 	
-				assert(0, "foreach can't be parsed yet");
+				AstExpression initExpression;
 
-				//return new VariableDeclaration(elementLocation, type, name, initExpression);
+				return new VariableDeclaration(elementLocation, type, name, initExpression);
 			}
 			
 			VariableDeclaration[] tupleElements = [parseForeachListElement()];
@@ -170,7 +170,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			auto statement = trange.parseStatement();
 			location.spanTo(statement.location);
 			
-			return new ForeachStatement(location, tupleElements, iterrated, statement);
+			return new AstForeachStatement(location, tupleElements, iterrated, statement);
 		
 		case Return :
 			trange.popFront();
