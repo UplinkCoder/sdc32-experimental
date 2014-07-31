@@ -5,7 +5,7 @@
 	"authors": ["deadlnix"],
 	"mainSourceFile" : "sdc/main.d",
 	"systemDependencies" : "LLVM >= 3.4",
-	"libs" : ["LLVMSupport","LLVMCore"],
+	"libs" : ["LLVMSupport","LLVMCore","LLVMCodeGen","LLVMExecutionEngine","LLVMMC"],
 	"importPaths" : ["libd-llvm/src","libd-llvm/libd/src","libd-llvm/import"],
 	"dependencies": {
 		"libd-llvm":{"version":"~master","path":"libd-llvm"}	

@@ -1,0 +1,1 @@
+dmd jsonRunner.d -I../src -I../libd-llvm/src -I../libd-llvm/libd/src -I../libd-llvm/import ../src/sdc/sdc.d ../src/sdc/conf.d ../src/util/json.d ../src/util/stringsource.d jsonx.d -L-ld -L-L../lib -L-lpthread -L-ld-llvm -L-lLLVMCore -L-lLLVMSupport -L-lz -L-lpthread

@@ -2,6 +2,9 @@ module util.stringsource;
 
 import d.location;
 import d.source;
+/** 
+ * This class is mostly ment for Unittests and such but could also be used by REPL and stuff. 
+ */
 final class StringSource : Source {
         string _name;
 

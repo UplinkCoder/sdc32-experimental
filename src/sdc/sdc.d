@@ -42,6 +42,10 @@ final class SDC {
 		// Review thet way this whole thing is built.
 		backend.getPass().object = semantic.object;
 	}
+	void compile (Source s, Name[] packages) {
+		modules ~= semantic.add(s,packages);
+	}
+
 
 	void compile(string filename) {
 		auto packages = filename[0 .. $ - 2].split("/").map!(p => context.getName(p)).array();
