@@ -2,6 +2,7 @@ module d.semantic.statement;
 
 import d.semantic.caster;
 import d.semantic.semantic;
+import d.source;
 
 import d.ast.conditional;
 import d.ast.declaration;

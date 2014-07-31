@@ -1,6 +1,7 @@
 module util.stringsource;
 
 import d.location;
+import d.source;
 final class StringSource : Source {
         string _name;
 

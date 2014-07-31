@@ -11,6 +11,7 @@ import d.semantic.semantic;
 
 import d.context;
 import d.location;
+import d.source;
 
 import util.json;
 

@@ -8,6 +8,7 @@ module sdc.terminal;
 import std.stdio;
 
 import d.location;
+import d.source;
 
 version(Windows) {
 	import std.c.windows.windows;

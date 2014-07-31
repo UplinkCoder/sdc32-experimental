@@ -1,6 +1,7 @@
 module d.semantic.declaration;
 
 import d.semantic.semantic;
+import d.source;
 
 import d.ast.base;
 import d.ast.conditional;

@@ -28,6 +28,7 @@ import d.context;
 import d.exception;
 import d.lexer;
 import d.location;
+import d.source;
 import d.object;
 
 import std.algorithm;
