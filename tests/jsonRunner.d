@@ -7,15 +7,13 @@ import d.source;
 import sdc.sdc;
 import std.conv;
 
-void main() {
+void main(string[] args) {
 
-//import jsonx;
 import sdc.conf;
 
 	write("Reading 'tests.json' ...");
 	JSONValue[string] testsJson = readText("tests.json").parseJSON.object;
-	writeln(" Done.");
-	writeln("Runnig tests now.");
+	writeln(" Done. \n Running tests ...");
 	immutable uint len = cast(immutable uint) testsJson["len"].integer;
 
 	JSONValue[] tests = testsJson["tests"].array;
@@ -28,7 +26,7 @@ import sdc.conf;
 			writefln("test %d: DOES NOT COMPILE",i);
 			continue;
 		}
-		auto _sdc = new SDC("sdc",conf,0,32);
+		auto _sdc = new SDC(args[0],conf,0,32);
 		
 		foreach (uint j,JSONValue dep;test["deps"].array) {
 			 _sdc.compile(new StringSource(dep.str,format("test%04d_import%d",i,j+1)));
@@ -40,9 +38,7 @@ import sdc.conf;
 
 		long retval = spawnProcess(format("./test%04d.exe",i),stdin,stdout,stderr).wait;
 
-		if (retval == test["retval"].integer) writefln("test %d : GOOD",i);
-		else writefln("test %d : BAD",i);
+		if (retval == test["retval"].integer) writefln("test %04d : SUCCEEDED",i);
+		else writefln("test %04d : FAILED",i);
 	}
-
-
 }

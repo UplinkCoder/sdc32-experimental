@@ -5,6 +5,11 @@
 	"copyright": "Copyright © 2014, deadlnix",
 	"authors": ["deadlnix"],
 	"importPaths" : ["import"],
+	"libs" : [ "LLVMTableGen","LLVMArchive","LLVMInstrumentation","LLVMLinker","LLVMIRReader","LLVMBitReader","LLVMAsmParser","LLVMipo","LLVMVectorize",
+		"LLVMDebugInfo","LLVMOption","LLVMX86Disassembler","LLVMX86AsmParser","LLVMX86CodeGen","LLVMSelectionDAG","LLVMAsmPrinter","LLVMX86Desc","LLVMX86Info","LLVMX86AsmPrinter",
+		"LLVMX86Utils","LLVMMCDisassembler","LLVMMCParser","LLVMInterpreter","LLVMBitWriter","LLVMMCJIT","LLVMJIT","LLVMCodeGen","LLVMObjCARCOpts","LLVMScalarOpts","LLVMInstCombine",
+ 		"LLVMTransformUtils","LLVMipa","LLVMAnalysis","LLVMRuntimeDyld","LLVMExecutionEngine","LLVMTarget","LLVMMC","LLVMObject","LLVMCore","LLVMSupport","z","pthread","stdc++","dl"
+	],
 	"dependencies": {
 		"libd": {"version":"~master","path":"libd"}
 	}
