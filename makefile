@@ -1,4 +1,4 @@
-DMD = dmd
+DMD ?= dmd
 
 GCC ?= gcc
 ARCHFLAG ?= 
