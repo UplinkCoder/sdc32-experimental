@@ -21,14 +21,15 @@ bool yn2bool (string yn) {
 	else if (yn == "no"|| yn ==  "false") return false;
 	else assert(0,"Malformed Input "~yn~" has to be yes or no");
 }
-
+string f(uint testNumber) {
+	return format("test%04s.d",testNumber);
+} 
 void main () {
-	int testNumber = 0;
-	string testsDotJson;
-	string testName = format("test%04s",testNumber);
-	string filename = testName~".d";
+	static int testNumber = 0;
+	string filename;
 	Test[] tests;
-	while (exists(filename)) {
+	do {
+		filename = f(testNumber);
 		Test t;
 		t.number = testNumber;
 		auto f = File(filename, "r");
@@ -51,39 +52,36 @@ void main () {
 	        auto val = set[1].idup;
 	        
 	        switch (var) {
-	        case "compiles":
-	            t.compiles=yn2bool(val);
-	            break;
-	        case "retval":
-	            t.retval = parse!int(val); 
-	            break;
-	        case "dependency":
+			case "compiles":
+				t.compiles=yn2bool(val);
+			break;
+
+			case "retval":
+				t.retval = parse!int(val); 
+			break;
+
+	        	case "dependency":
 				auto df = File(val,"r");
 				string dep;
 				foreach(l;df.byLine) {
 					dep~=to!string(l)~"\n";
 				}
-	            t.deps ~= dep;
-	            break;
-	        case "has-passed":
-		    t.has_passed = yn2bool(val);
-	            break;
-	       	// case "desc" :
-		//    t.desc = val~cast(immutable)(words[2 .. $]).join(" ");
-		//    break;
-	        default:
-	            stderr.writefln("%s: unkown command (%s). ", filename,var);
-	            return;
-	        }
-	    }
-	    tests ~= t;
-	    
-	    testNumber++;
-	    testName = format("test%04s",testNumber);
-	    filename = testName~".d";
-	}
-	string testsJson=`{"len":`~to!string(tests.length)~`,"tests":`~jsonEncode(tests)~"}";
-	auto j = parseJSON(testsJson);
-	writeln(toJSON(cast(const)&j,true));	
+				t.deps ~= dep;
+			break;
+
+			case "has-passed":
+				t.has_passed = yn2bool(val);
+			break;
+
+	        	default:
+				stderr.writefln("%s: unkown command (%s). ", filename,var);
+			return;
+			}
+		}
+		tests ~= t;
+	} while (exists(f(++testNumber)));
+ 
+	File testsJson = File ("tests.json","w");
+	testsJson.write(tests.jsonEncode);	
 }
 

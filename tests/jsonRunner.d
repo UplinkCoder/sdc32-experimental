@@ -12,11 +12,8 @@ void main(string[] args) {
 import sdc.conf;
 
 	write("Reading 'tests.json' ...");
-	JSONValue[string] testsJson = readText("tests.json").parseJSON.object;
+	JSONValue[] tests = readText("tests.json").parseJSON.array;
 	writeln(" Done. \n Running tests ...");
-	immutable uint len = cast(immutable uint) testsJson["len"].integer;
-
-	JSONValue[] tests = testsJson["tests"].array;
 
 	auto conf = buildConf();
 
