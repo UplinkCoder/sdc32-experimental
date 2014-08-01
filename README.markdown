@@ -57,4 +57,4 @@ SDC contains le lot of hardcoded PATH right now, so it hard to integrate properl
 SDC require LLVM 3.4 . if the default llvm-config on your system is an older version, you can specify a newer version via `LLVM_CONFIG`. For instance, on a debian system, you want to use `make LLVM_CONFIG=llvm-config-3.4` .
 
 ### Running tests
-To run the tests, execute `sh buildTester && ./convtest` to build the test-runner application found in `tests/`, then run it with `./jsonRunner`.
+To run the tests, execute `sh buildTester.sh && ./convtest` to build the test-runner application found in `tests/`, then run it with `./jsonRunner`.
