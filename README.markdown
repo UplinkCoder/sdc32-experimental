@@ -56,8 +56,5 @@ SDC contains le lot of hardcoded PATH right now, so it hard to integrate properl
 
 SDC require LLVM 3.4 . if the default llvm-config on your system is an older version, you can specify a newer version via `LLVM_CONFIG`. For instance, on a debian system, you want to use `make LLVM_CONFIG=llvm-config-3.4` .
 
-### Setup
-Extract the LLVM DLL binary archive to the SDC repository, then build with `make -f Makefile.windows`.
-When running SDC, make sure `gcc`, `llc` and `opt` are available in your PATH.
-
-To run the tests, execute `dmd runner.d` to build the test-runner application found in `tests/`, then run it with `runner --m32`.
+### Running tests
+To run the tests, execute `sh buildTester && ./convtest` to build the test-runner application found in `tests/`, then run it with `./jsonRunner`.
