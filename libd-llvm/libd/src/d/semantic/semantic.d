@@ -100,7 +100,7 @@ final class SemanticPass {
 	}
 	
 	AstModule parse(Source source, Name[] packages) {
-		auto trange = lex!((line, index, length) => Location(source, line, index, length))(source.content, context);
+		auto trange = lex(source, context);
 		return trange.parse(packages[$ - 1], packages[0 .. $-1]);
 	}
 	

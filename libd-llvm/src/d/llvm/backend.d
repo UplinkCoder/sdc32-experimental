@@ -154,7 +154,11 @@ final class LLVMBackend {
 			auto linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ linkerParams ~ " -lsdrt";
 		} else {
 			auto linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ linkerParams ~ " -lsdrt";
+			if (bitWidth==32) {
+				linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ linkerParams ~ " -lsdrt32";
+			}
 		}
+
 		
 		writeln(linkCommand);
 		system(linkCommand);

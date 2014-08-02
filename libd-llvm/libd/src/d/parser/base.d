@@ -18,7 +18,7 @@ auto parse(R)(ref R trange, Name name, Name[] packages) if(isTokenRange!R) {
 template isTokenRange(T) {
 	import std.range;
 	
-	enum isTokenRange = isForwardRange!T && is(ElementType!T : const(Token!Location));
+	enum isTokenRange = isForwardRange!T && is(ElementType!T : const(Token));
 }
 
 void match(R)(ref R trange, TokenType type) if(isTokenRange!R) {

@@ -286,7 +286,7 @@ struct DeclarationVisitor {
 		if(auto str = cast(StringLiteral) value) {
 			import d.lexer;
 			auto source = new MixinSource(location, str.value);
-			auto trange = lex!((line, begin, length) => Location(source, line, begin, length))(str.value ~ '\0', context);
+			auto trange = lex(source,context);
 			
 			trange.match(TokenType.Begin);
 			

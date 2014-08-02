@@ -26,6 +26,9 @@ abstract class Source {
 			return filename.split("/");
 		}
 	}
+	//@property 
+	//abstract  getstr(Location begin,Location end) const;
+
 }
 
 final class FileSource : Source {

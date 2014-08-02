@@ -48,12 +48,10 @@ final class SDC {
 		modules ~= semantic.add(s,packages);
 	}
 
-
-	void compile(string filename) {
-		auto packages = filename[0 .. $ - 2].split("/").map!(p => context.getName(p)).array();
-		modules ~= semantic.add(new FileSource(filename), packages);
+	void compileFile(string filename) {
+		compile(new FileSource(filename)); 
 	}
-	
+
 	void compile(Name[] packages) {
 		modules ~= semantic.add(getFileSource(packages), packages);
 	}
@@ -75,7 +73,12 @@ final class SDC {
 
 		backend.link(objFile, executable);
 	}
+	/*
+	Source getSource  (string fqn) {
+		string[] parts = split(fqn,".");
 
+	}
+*/
 	FileSource getFileSource(Name[] packages) {
 		auto filename = "/" ~ packages.map!(p => p.toString(context)).join("/") ~ ".d";
 		foreach(path; includePaths) {

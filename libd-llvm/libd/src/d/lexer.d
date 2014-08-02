@@ -120,27 +120,29 @@ enum TokenType {
 	}
 	*/
 }
-
+import d.source;
+import d.location;
 import d.context;
 
-struct Token(Location) {
+struct Token {
 	Location location;
 	TokenType type;
 	Name name;
 }
 
-auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
-	alias Location = typeof(locationProvider(0, 0, 0));
-	alias Token = .Token!Location;
+auto lex(Source src, Context context) {
+	//alias Location = typeof(locationProvider(0, 0, 0));
+	//alias Token = .Token!Location;
 	
 	struct Lexer {
 		static assert(isForwardRange!Lexer);
-		
+
+		Source src;
 		Token t;
-		R r;
-		
+
 		Context context;
-		
+
+
 		uint line = 1;
 		uint index;
 		
@@ -166,7 +168,7 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 		
 		@property
 		auto save() inout {
-			return inout(Lexer)(t, r.save, context, line, index);
+			return inout(Lexer)(src, t, context, line, index);
 		}
 		
 		@property
@@ -194,13 +196,13 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 		}
 		
 		auto lexComment(string s)() {
-			auto c = r.front;
+			auto c = src.content.front;
 			
 			static if(s == "//") {
 				// TODO: check for unicode line break.
 				while(c != '\n' && c != '\r') {
 					popChar();
-					c = r.front;
+					c = src.content.front;
 				}
 				
 				popChar();
@@ -350,7 +352,7 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 			putString(prefix);
 			pumpChars!isIdChar(r);
 			
-			t.location = locationProvider(l, begin, index - begin);
+			t.location = Location(src,l, begin, index - begin);
 			t.name = getValue();
 			
 			return t;
@@ -472,7 +474,7 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 					}
 				}
 				
-				t.location = locationProvider(l, begin, index - begin);
+				t.location = Location(src,l, begin, index - begin);
 				t.name = getValue();
 				
 				return t;
@@ -494,7 +496,7 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 			
 			popChar();
 			
-			t.location = locationProvider(l, begin, index - begin);
+			t.location = Location(src,l, begin, index - begin);
 			return t;
 		}
 		
@@ -586,7 +588,7 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 					break;
 			}
 			
-			t.location = locationProvider(l, begin, index - begin);
+			t.location = Location(src,l, begin, index - begin);
 			t.name = getValue();
 			
 			return t;
@@ -662,7 +664,7 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 					break;
 			}
 			
-			t.location = locationProvider(l, begin, index - begin);
+			t.location = Location(src,l, begin, index - begin);
 			t.name = getValue();
 			
 			return t;
@@ -689,7 +691,7 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 			
 			Token t;
 			t.type = type;
-			t.location = locationProvider(line, index - l, l);
+			t.location = Location(src,line, index - l, l);
 			t.name = BuiltinName!s;
 			
 			return t;
@@ -702,7 +704,7 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 			
 			Token t;
 			t.type = type;
-			t.location = locationProvider(line, index - l, l);
+			t.location = Location(src,line, index - l, l);
 			t.name = BuiltinName!s;
 			
 			return t;
@@ -710,10 +712,10 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 	}
 	
 	auto lexer = Lexer();
-	
-	lexer.r = r.save;
+
+	lexer.src = src;
 	lexer.t.type = TokenType.Begin;
-	lexer.t.location = locationProvider(0, 0, 0);
+	lexer.t.location = Location(src,0, 0, 0);
 	
 	lexer.context = context;
 	
@@ -1136,7 +1138,7 @@ string lexerMixin(string base = "", string def = "lexIdentifier", string[string]
 	}
 	
 	auto ret = "
-		switch(r.front) {";
+		switch(src.content.front) {";
 	
 	foreach(c, ids; nextLevel) {
 		// TODO: have a real function to handle that.

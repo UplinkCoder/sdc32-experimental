@@ -61,7 +61,7 @@ int main(string[] args) {
 	auto sdc = new SDC(files[0], conf, optLevel,bitWidth);
 	try {
 		foreach(file; files) {
-			sdc.compile(file);
+			sdc.compileFile(file);
 		}
 		
 		if(dontLink) {
