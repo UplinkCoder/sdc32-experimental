@@ -1,13 +1,12 @@
 {
 	"name": "sdc",
-	"description": "SDC's driver",
+	
+	"description": "SDC's driver-lib",
 	"copyright": "Copyright © 2014, deadlnix",
 	"authors": ["deadlnix"],
-	"mainSourceFile" : "sdc/main.d",
-	"libs" : ["d","d-llvm"],	
+	"mainSourceFile" : "sdc/main.d",	
 	"importPaths" : ["libd-llvm/src","libd-llvm/libd/src","libd-llvm/import"],
 	"dependencies": {
 		"libd-llvm":{"version":"~master","path":"libd-llvm"}	
-	},
-	"lflags" : ["-Llib"]
+	}
 }

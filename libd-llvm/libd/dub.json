@@ -1,6 +1,6 @@
 {
 	"name": "libd",
- 	 "targetType": "library",
+ 	"targetType": "sourceLibrary",
 	"description": "SDC's lexer, parser and semantic analysis",
 	"copyright": "Copyright © 2014, deadlnix",
 	"authors": ["deadlnix"],
