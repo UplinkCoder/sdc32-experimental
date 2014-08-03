@@ -10,10 +10,10 @@ import std.string;
 
 import d.location;
 
-class CompileException : Exception {
+class  CompileException : Exception {
 	Location location;
 	
-	CompileException more; // Optional
+	CompileException next; // Optional
 	string fixHint; // Optional
 	
 	this(Location loc, string message) {
@@ -21,8 +21,8 @@ class CompileException : Exception {
 		location = loc;
 	}
 	
-	this(Location loc, string message, CompileException more) {
-		this.more = more;
+	this(Location loc, string message, CompileException next) {
+		this.next = next;
 		this(loc, message);
 	}
 }

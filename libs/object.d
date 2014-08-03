@@ -11,7 +11,7 @@ version (D_LP64) {
 alias string = immutable(char)[];
 
 extern (C) {
-	void* malloc(size_t);
+	void* malloc(size_t) ;
 	void* realloc(void*, size_t);
 	void exit(int code);
 	// XXX: change to const when proper type qualifier propagation is in place.

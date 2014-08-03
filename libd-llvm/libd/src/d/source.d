@@ -4,7 +4,22 @@ public import d.location;
 
 abstract class Source {
 	string content;
-	
+	size_t pos;
+
+	void popFront() {
+		pos++;
+	}
+
+	char front() {
+		return content[pos];
+	}
+
+	Source save(T)() {
+		Source ret = new T;	
+		ret.pos(pos);
+		return this;
+	}
+
 	this(string content) {
 		this.content = content;
 	}
@@ -61,8 +76,16 @@ final class FileSource : Source {
 }
 
 final class MixinSource : Source {
+	Source source;
 	Location location;
-	
+
+	this(Source source,Location location, string content) {
+		this.source = source;
+		this.location = location;
+		super(content);
+	}
+
+
 	this(Location location, string content) {
 		this.location = location;
 		super(content);
@@ -74,7 +97,11 @@ final class MixinSource : Source {
 	
 	@property
 	override string filename() const {
-		return location.source.filename;
+		if (source is null) {
+			return location.source.filename;
+		} else {
+			return source.filename;
+		}
 	}
 	
 	@property

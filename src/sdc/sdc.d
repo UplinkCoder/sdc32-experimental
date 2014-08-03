@@ -42,7 +42,7 @@ final class SDC {
 		// Review thet way this whole thing is built.
 		backend.getPass().object = semantic.object;
 	}
-	
+
 	void compile (Source s) {
 		auto packages = s.packages.map!(p =>  context.getName(p)).array();
 		modules ~= semantic.add(s,packages);

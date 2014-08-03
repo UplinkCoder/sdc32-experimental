@@ -168,7 +168,7 @@ auto lex(Source src, Context context) {
 		
 		@property
 		auto save() inout {
-			return inout(Lexer)(src, t, context, line, index);
+			return inout(Lexer)(src, t, context, line, src.pos);
 		}
 		
 		@property
@@ -185,7 +185,7 @@ auto lex(Source src, Context context) {
 		}
 		
 		void popChar() {
-			r.popFront();
+			src.content.popFront();
 			index++;
 		}
 		
@@ -207,7 +207,7 @@ auto lex(Source src, Context context) {
 				
 				popChar();
 				if(c == '\r') {
-					if(r.front == '\n') popChar();
+					if(src.content.front == '\n') popChar();
 				}
 				
 				line++;
@@ -216,12 +216,12 @@ auto lex(Source src, Context context) {
 					// TODO: check for unicode line break.
 					while(c != '*' && c != '\r' && c != '\n') {
 						popChar();
-						c = r.front;
+						c = src.content.front;
 					}
 					
 					auto match = c;
 					popChar();
-					c = r.front;
+					c = src.content.front;
 					
 					switch(match) {
 						case '*' :
@@ -236,7 +236,7 @@ auto lex(Source src, Context context) {
 							// \r\n is a special case.
 							if(c == '\n') {
 								popChar();
-								c = r.front;
+								c = src.content.front;
 							}
 							
 							line++;
@@ -256,12 +256,12 @@ auto lex(Source src, Context context) {
 					// TODO: check for unicode line break.
 					while(c != '+' && c != '/' && c != '\r' && c != '\n') {
 						popChar();
-						c = r.front;
+						c = src.content.front;
 					}
 					
 					auto match = c;
 					popChar();
-					c = r.front;
+					c = src.content.front;
 					
 					switch(match) {
 						case '+' :
@@ -269,7 +269,7 @@ auto lex(Source src, Context context) {
 								popChar();
 								if(!stack) break Pump;
 								
-								c = r.front;
+								c = src.content.front;
 								stack--;
 							}
 							
@@ -278,7 +278,7 @@ auto lex(Source src, Context context) {
 						case '/' :
 							if(c == '+') {
 								popChar();
-								c = r.front;
+								c = src.content.front;
 								
 								stack++;
 							}
@@ -289,7 +289,7 @@ auto lex(Source src, Context context) {
 							// \r\n is a special case.
 							if(c == '\n') {
 								popChar();
-								c = r.front;
+								c = src.content.front;
 							}
 							
 							line++;
@@ -310,19 +310,19 @@ auto lex(Source src, Context context) {
 		
 		auto lexIdentifier(string s)() {
 			static if(s == "") {
-				auto c = r.front;
+				auto c = src.content.front;
 				
 				if(isIdChar(c)) {
 					return lexIdentifier(s);
 				} else if(c & 0x80) {
 					size_t l;
-					auto save = r.save;
+					auto save = src.content.save;
 					auto u = save.decodeFront(l);
 					
 					if(isUniAlpha(u)) {
 						char[4] encoded;
 						for(uint i = 0; i < l; i++) {
-							encoded[i] = r.front;
+							encoded[i] = src.content.front;
 							popChar();
 						}
 						
@@ -350,7 +350,7 @@ auto lex(Source src, Context context) {
 			mixin CharPumper;
 			
 			putString(prefix);
-			pumpChars!isIdChar(r);
+			pumpChars!isIdChar(src.content);
 			
 			t.location = Location(src,l, begin, index - begin);
 			t.name = getValue();
@@ -359,12 +359,12 @@ auto lex(Source src, Context context) {
 		}
 		
 		auto lexEscapeSequence() in {
-			assert(r.front == '\\', r.front ~ " is not a valid escape sequence.");
+			assert(src.content.front == '\\', src.content.front ~ " is not a valid escape sequence.");
 		} body {
 			popChar();
 			scope(success) popChar();
 			
-			switch(r.front) {
+			switch(src.content.front) {
 				case '\'' :
 					return '\'';
 				
@@ -407,7 +407,7 @@ auto lex(Source src, Context context) {
 		}
 		
 		auto lexEscapeChar() {
-			auto c = r.front;
+			auto c = src.content.front;
 			switch(c) {
 				case '\0' :
 					assert(0, "unexpected end :(");
@@ -435,7 +435,7 @@ auto lex(Source src, Context context) {
 			t.type = TokenType.StringLiteral;
 			uint l = line, begin = cast(uint) (index - s.length);
 			
-			auto c = r.front;
+			auto c = src.content.front;
 			
 			static if(s == "\"") {
 				mixin CharPumper!false;
@@ -444,7 +444,7 @@ auto lex(Source src, Context context) {
 					// TODO: check for unicode line break.
 					while(c != '\"' && c != '\r' && c != '\n') {
 						putChar(lexEscapeChar());
-						c = r.front;
+						c = src.content.front;
 					}
 					
 					popChar();
@@ -454,12 +454,12 @@ auto lex(Source src, Context context) {
 							break Pump;
 						
 						case '\r' :
-							c = r.front;
+							c = src.content.front;
 							
 							// \r\n is a special case.
 							if(c == '\n') {
 								popChar();
-								c = r.front;
+								c = src.content.front;
 							}
 							
 							line++;
@@ -490,7 +490,7 @@ auto lex(Source src, Context context) {
 			
 			t.name = context.getName([lexEscapeChar()]);
 			
-			if(r.front != '\'') {
+			if(src.content.front != '\'') {
 				assert(0, "booya !");
 			}
 			
@@ -513,7 +513,7 @@ auto lex(Source src, Context context) {
 			
 			putString(s);
 			
-			auto c = r.front;
+			auto c = src.content.front;
 			switch(s[1]) {
 				case 'B', 'b' :
 					assert(c == '0' || c == '1', "invalid integer literal");
@@ -521,12 +521,12 @@ auto lex(Source src, Context context) {
 						while(c == '0' || c == '1') {
 							putChar(c);
 							popChar();
-							c = r.front;
+							src.content.front;
 						}
 						
 						if(c == '_') {
 							popChar();
-							c = r.front;
+							c = src.content.front;
 							continue;
 						}
 						
@@ -541,12 +541,12 @@ auto lex(Source src, Context context) {
 						while((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
 							putChar(c);
 							popChar();
-							c = r.front;
+							c = src.content.front;
 						}
 						
 						if(c == '_') {
 							popChar();
-							c = r.front;
+							c = src.content.front;
 							continue;
 						}
 						
@@ -564,7 +564,7 @@ auto lex(Source src, Context context) {
 					putChar(c);
 					popChar();
 					
-					c = r.front;
+					c = src.content.front;
 					if(c == 'L' || c == 'l') {
 						putChar(c);
 						popChar();
@@ -576,7 +576,7 @@ auto lex(Source src, Context context) {
 					putChar(c);
 					popChar();
 					
-					c = r.front;
+					c = src.content.front;
 					if(c == 'U' || c == 'u') {
 						putChar(c);
 						popChar();
@@ -603,17 +603,17 @@ auto lex(Source src, Context context) {
 			
 			assert(c >= '0' && c <= '9', "invalid integer literal");
 			putChar(c);
-			c = r.front;
+			c = src.content.front;
 			while(1) {
 				while(c >= '0' && c <= '9') {
 					putChar(c);
 					popChar();
-					c = r.front;
+					c = src.content.front;
 				}
 				
 				if(c == '_') {
 					popChar();
-					c = r.front;
+					c = src.content.front;
 					continue;
 				}
 				
@@ -622,7 +622,7 @@ auto lex(Source src, Context context) {
 			
 			switch(c) {
 				case '.' :
-					auto lookAhead = r.save;
+					auto lookAhead = src.content.save;
 					lookAhead.popFront();
 					
 					if(lookAhead.front.isDigit()) {
@@ -631,7 +631,7 @@ auto lex(Source src, Context context) {
 						
 						t.type = TokenType.FloatLiteral;
 						
-						pumpChars!isDigit(r);
+						pumpChars!isDigit(src.content);
 					}
 					
 					break;
@@ -640,7 +640,7 @@ auto lex(Source src, Context context) {
 					putChar(c);
 					popChar();
 					
-					c = r.front;
+					c = src.content.front;
 					if(c == 'L' || c == 'l') {
 						putChar(c);
 						popChar();
@@ -652,7 +652,7 @@ auto lex(Source src, Context context) {
 					putChar(c);
 					popChar();
 					
-					c = r.front;
+					c = src.content.front;
 					if(c == 'U' || c == 'u') {
 						putChar(c);
 						popChar();
@@ -671,12 +671,12 @@ auto lex(Source src, Context context) {
 		}
 		
 		auto lexKeyword(string s)() {
-			auto c = r.front;
+			auto c = src.content.front;
 			if(isIdChar(c)) {
 				return lexIdentifier!s();
 			} else if(c & 0x80) {
 				size_t l;
-				auto save = r.save;
+				auto save = src.content.save;
 				auto u = save.decodeFront(l);
 				
 				if(isUniAlpha(u)) {
@@ -720,16 +720,16 @@ auto lex(Source src, Context context) {
 	lexer.context = context;
 	
 	// Pop #!
-	auto c = lexer.r.front;
+	auto c = lexer.src.content.front;
 	if(c == '#') {
 		do {
 			lexer.popChar();
-			c = lexer.r.front;
+			c = lexer.src.content.front;
 		} while(c != '\n' && c != '\r');
 		
 		lexer.popChar();
 		if(c == '\r') {
-			if(lexer.r.front == '\n') lexer.popChar();
+			if(lexer.src.content.front == '\n') lexer.popChar();
 		}
 		
 		lexer.line++;
@@ -772,7 +772,7 @@ mixin template CharPumper(bool decode = true) {
 		Begin:
 		if(i < BufferSize) {
 			do {
-				c = r.front;
+				c = src.content.front;
 				
 				if(condition(c)) {
 					buffer[i++] = c;
@@ -788,7 +788,7 @@ mixin template CharPumper(bool decode = true) {
 						
 						if(condition(u)) {
 							while(l--) {
-								putChar(r.front);
+								putChar(src.content.front);
 								popChar();
 							}
 							
@@ -805,7 +805,7 @@ mixin template CharPumper(bool decode = true) {
 		}
 		
 		while(1) {
-			 c = r.front;
+			 c = src.content.front;
 			 
 			 if(condition(c)) {
 				heapBuffer ~= c;
@@ -816,14 +816,14 @@ mixin template CharPumper(bool decode = true) {
 				// Check if if have an unicode character.
 				if(c & 0x80) {
 					size_t l;
-					auto save = r.save;
+					auto save = src.content.save;
 					auto u = save.decodeFront(l);
 					
 					if(condition(u)) {
 						heapBuffer.reserve(l);
 						
 						while(l--) {
-							heapBuffer ~= r.front;
+							heapBuffer ~= src.content.front;
 							popChar();
 						}
 					}
