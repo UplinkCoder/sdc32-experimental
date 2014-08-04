@@ -150,7 +150,10 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 			static if(is(typeof(identified) : QualType)) {
 				import d.semantic.caster, d.semantic.expression;
 				auto ev = ExpressionVisitor(pass);
-				auto se = buildImplicitCast(pass, i.index.location, getBuiltin(TypeKind.Uint), ev.visit(i.index));
+				auto se = buildImplicitCast(pass, i.index.location, getBuiltin(TypeKind.Ulong), ev.visit(i.index));
+				if (pass.bitWidth==32) {
+					se = buildImplicitCast(pass, i.index.location, getBuiltin(TypeKind.Uint), ev.visit(i.index));
+				}
 				auto size = (cast(IntegerLiteral!false) pass.evaluate(se)).value;
 				
 				return handler(QualType(new ArrayType(identified, size)));
@@ -546,9 +549,9 @@ struct SymbolInTypeResolver {
 		if(name == BuiltinName!"length") {
 			// FIXME: pass explicit location.
 			auto location = Location.init;
-			auto lt = getBuiltin(TypeKind.Uint);
-			if (pass.bitWidth==64) {
-				lt = getBuiltin(TypeKind.Ulong);
+			auto lt = getBuiltin(TypeKind.Ulong);
+			if (pass.bitWidth==32) {
+				lt = getBuiltin(TypeKind.Uint);
 			}
 			auto s = new Field(location, 0, lt, BuiltinName!"length", null);
 			s.step = Step.Processed;
