@@ -180,7 +180,7 @@ struct StatementVisitor {
 		Statement statement;
 		Expression iterated;
 
-		
+		new ForeachStatement
 		
 		
 
