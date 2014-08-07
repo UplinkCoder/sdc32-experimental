@@ -101,9 +101,9 @@ final class StringSource : Source {
                 return _name;
         }
 	
-	@property 
-	override string[] packages() const {
-		return packages_from_filename();
-	}
+		@property 
+		override string[] packages() const {
+			return packages_from_filename();
+		}
 }
 
