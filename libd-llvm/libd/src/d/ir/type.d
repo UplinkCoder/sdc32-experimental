@@ -17,6 +17,22 @@ alias AssociativeArrayType = d.ast.qualtype.AssociativeArrayType!Type;
 alias FunctionType = d.ast.qualtype.FunctionType!Type;
 alias DelegateType = d.ast.qualtype.DelegateType!Type;
 
+TypeKind getPointerTypeKind(bool isSigned=false) (uint bitWidth) {
+ static if (!isSigned) {
+	if (bitWidth == 8) return TypeKind.Ubyte;
+		else if (bitWidth == 16) return TypeKind.Ushort;
+		else if (bitWidth == 32) return TypeKind.Uint;
+		else if (bitWidth == 64) return TypeKind.Ulong;
+	} else {
+		if (bitWidth == 8) return TypeKind.Byte;
+		else if (bitWidth == 16) return TypeKind.Short;
+		else if (bitWidth == 32) return TypeKind.Int;
+		else if (bitWidth == 64) return TypeKind.Long;
+	}
+	 import std.conv:to;
+	 assert(0,"No pointer type for bitWidth "~bitWidth.to!string);
+}
+
 enum TypeKind {
 	None,
 	Void,

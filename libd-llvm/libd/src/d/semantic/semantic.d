@@ -48,7 +48,7 @@ alias ReturnStatement = d.ir.statement.ReturnStatement;
 
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
-	uint bitWidth;
+	TypeKind pointerTypeKind;
 	Context context;
 	
 	Evaluator evaluator;
@@ -86,9 +86,9 @@ final class SemanticPass {
 	this(Context context, Evaluator evaluator, Source delegate(Name[]) sourceFactory,uint bitWidth) {
 		this.context	= context;
 		this.evaluator	= evaluator;
-		this.bitWidth = bitWidth;
+		this.pointerTypeKind = getPointerTypeKind(bitWidth);
     
-		if (bitWidth == 64) versions ~=  BuiltinName!"D_LP64";
+		if (pointerTypeKind == TypeKind.Ulong) versions ~=  BuiltinName!"D_LP64";
     
 		moduleVisitor		= new ModuleVisitor(this, sourceFactory);
 		scheduler			= new Scheduler(this);
