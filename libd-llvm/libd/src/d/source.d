@@ -54,7 +54,7 @@ final class FileSource : Source {
 	@property
 	override string[] packages() const {
 		return packages_from_filename();
-        }
+	}
 }
 
 final class MixinSource : Source {
@@ -75,35 +75,34 @@ final class MixinSource : Source {
 	}
 	
 	@property
-        override string[] packages() const {
-                return location.source.packages;
-        }
+	override string[] packages() const {
+		return location.source.packages;
+	}
 }
 
 /** 
  * This class is mostly ment for Unittests and such but could also be used by REPL and stuff. 
  */
 final class StringSource : Source {
-        string _name;
+	string _name;
 
-        this(in string content,in string name) {
-                _name = name;
-                super(content ~ '\0');
-        }
+	this(in string content,in string name) {
+		_name = name;
+		super(content ~ '\0');
+	}
 
-        override string format(const Location location) const {
-                import std.conv;
-                return _name ~ ':' ~ to!string(location.line);
-        }
+	override string format(const Location location) const {
+		import std.conv;
+		return _name ~ ':' ~ to!string(location.line);
+	}
 
-        @property
-        override string filename() const {
-                return _name;
-        }
+	@property
+	override string filename() const {
+		return _name;
+	}
 	
-		@property 
-		override string[] packages() const {
-			return packages_from_filename();
-		}
+	@property 
+	override string[] packages() const {
+		return packages_from_filename();
+	}
 }
-
