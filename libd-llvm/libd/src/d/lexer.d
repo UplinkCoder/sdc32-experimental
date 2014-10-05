@@ -122,21 +122,16 @@ enum TokenType {
 }
 
 import d.context;
-import d.source;
 
-struct Token {
+struct Token(Location) {
 	Location location;
 	TokenType type;
 	Name name;
 }
 
-auto lexSource (Source s,Context c) {
-	return lex!((line, index, length) => Location(s, line, index, length))(s.content,c);
-}
-
 auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 	alias Location = typeof(locationProvider(0, 0, 0));
-	//alias Token = .Token!Location;
+	alias Token = .Token!Location;
 	
 	struct Lexer {
 		static assert(isForwardRange!Lexer);

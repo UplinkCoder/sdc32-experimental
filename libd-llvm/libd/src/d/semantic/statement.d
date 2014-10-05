@@ -2,7 +2,6 @@ module d.semantic.statement;
 
 import d.semantic.caster;
 import d.semantic.semantic;
-import d.source;
 
 import d.ast.conditional;
 import d.ast.declaration;
@@ -28,7 +27,6 @@ alias IfStatement = d.ir.statement.IfStatement;
 alias WhileStatement = d.ir.statement.WhileStatement;
 alias DoWhileStatement = d.ir.statement.DoWhileStatement;
 alias ForStatement = d.ir.statement.ForStatement;
-alias ForeachStatement = d.ir.statement.ForeachStatement;
 alias ReturnStatement = d.ir.statement.ReturnStatement;
 alias SwitchStatement = d.ir.statement.SwitchStatement;
 alias CaseStatement = d.ir.statement.CaseStatement;
@@ -169,23 +167,71 @@ struct StatementVisitor {
 		
 		flattenedStmts[$ - 1] = new ForStatement(f.location, initialize, condition, increment, statement);
 	}
-	/+
-	void visit(AstForeachStatement f) { 
+
+	void visit(ForeachStatement fr) {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
-
+		
 		currentScope = (cast(NestedScope) oldScope).clone();
-		
-		VariableDeclaration[] varDecls; 
-		Statement statement;
-		Expression iterated;
 
-		new ForeachStatement
-		
-		
+		import d.semantic.expression;
+		import d.semantic.declaration;
+		auto ev = ExpressionVisitor(pass);
+		auto dv = DeclarationVisitor(pass,AddContext.Yes,AggregateType.None);
+		//TypeKind size_tKind =  (cast(BuiltinType) pass.object.getSizeT.type.type).kind;
 
+		auto iterrated = ev.visit(fr.iterrated);
+		if (auto varexpr = cast(VariableExpression) iterrated) {
+			import d.semantic.defaultinitializer:InitBuilder;
+			auto ib = new InitBuilder(pass);
+
+			QualType elementType;
+			Expression size;
+			VariableExpression idx;
+			Variable elem;
+
+			if (auto at = cast(ArrayType) varexpr.type.type) {
+				size = new IntegerLiteral!false(fr.location,at.size,TypeKind.Ulong);
+				size.type = pass.object.getSizeT().type;
+				elementType = at.elementType;
+
+			} else if (auto st = cast(SliceType) varexpr.type.type) {
+				assert(0,"foreach for SliceTypes not Implemented");
+			} else {
+				assert(0,typeid(varexpr.type.type).toString~" is not supported as foreach argument (for now)");
+			}
+
+			if (fr.tupleElements.length==2) {
+				fr.tupleElements[0].value = ib.visit(fr.tupleElements[0].location, pass.object.getSizeT.type);
+				dv.flatten(fr.tupleElements[0]);
+
+				if (auto v = cast(Variable) currentScope.search(fr.tupleElements[0].name)) {
+					v.type = pass.object.getSizeT().type;
+					idx = new VariableExpression(fr.tupleElements[0].location,v);
+				}
+
+				fr.tupleElements[1].value = ib.visit(fr.tupleElements[1].location, elementType);
+				dv.flatten(fr.tupleElements[1]);
+				elem = cast(Variable) currentScope.search(fr.tupleElements[1].name);
+
+			} else {
+				idx = new VariableExpression(fr.location, new Variable(fr.location, pass.object.getSizeT().type, BuiltinName!"", ib.visit(fr.location, pass.object.getSizeT.type)));
+				fr.tupleElements[0].value = ib.visit(fr.tupleElements[0].location, elementType);
+				dv.flatten(fr.tupleElements[0]);
+				elem = cast(Variable) currentScope.search(fr.tupleElements[0].name);
+			}
+
+			auto inc =  new UnaryExpression(fr.location, pass.object.getSizeT().type, UnaryOp.PostInc, idx);
+			auto cmpr = new BinaryExpression(fr.location, pass.object.getSizeT().type, BinaryOp.Less, idx, size);
+			auto assign = new BinaryExpression(fr.location, varexpr.type, BinaryOp.Assign, new VariableExpression(fr.tupleElements[0].location, elem), new IndexExpression(fr.location, elementType, varexpr, [idx]));
+
+			visit(fr.statement);
+			Statement[] stmts = [new ExpressionStatement(assign), flattenedStmts[$ - 1]]; 
+			Statement stmt = new BlockStatement(fr.statement.location, stmts);
+			flattenedStmts[$ - 1] = new ForStatement(fr.location, new ExpressionStatement(idx), cmpr, inc, stmt);
+		}
 	}
-	+/
+
 	void visit(AstReturnStatement r) {
 		import d.semantic.expression;
 		auto ev = ExpressionVisitor(pass);
@@ -265,8 +311,8 @@ struct StatementVisitor {
 	void visit(AstTryStatement s) {
 		auto tryStmt = autoBlock(s.statement);
 		
-		import d.semantic.identifier;
-		auto iv = IdentifierVisitor!(function Class(identified) {
+		import d.semantic.identifier : AliasResolver;
+		auto iv = AliasResolver!(function Class(identified) {
 			static if(is(typeof(identified) : Symbol)) {
 				if(auto c = cast(Class) identified) {
 					return c;
@@ -280,7 +326,7 @@ struct StatementVisitor {
 				// for typeof(null)
 				assert(0);
 			}
-		}, true)(pass);
+		})(pass);
 		
 		CatchBlock[] catches = s.catches.map!(c => CatchBlock(c.location, iv.visit(c.type), c.name, autoBlock(c.statement))).array();
 		

@@ -1,9 +1,11 @@
 {
 	"name": "libd",
- 	"targetType": "sourceLibrary",
-	"description": "SDC's lexer, parser and semantic analysis",
-	"copyright": "Copyright © 2014, deadlnix",
-	"authors": ["deadlnix"],
+	"description": "Implementation of the D programming language as a library.",
+	"targetType": "sourceLibrary",
+	"copyright": "Copyright © 2012 Amaury SECHET",
+	"authors": ["Amaury SECHET"],
+	"license" : "MIT",
 	"dependencies": {
-	}
+	},
+	"targetName" : "d"
 }

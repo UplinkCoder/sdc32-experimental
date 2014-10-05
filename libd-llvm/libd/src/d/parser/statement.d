@@ -146,9 +146,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 				
 				trange.match(Identifier);
 	
-				AstExpression initExpression;
-
-				return new VariableDeclaration(elementLocation, type, name, initExpression);
+				return new VariableDeclaration(elementLocation, type, name, null);
 			}
 			
 			VariableDeclaration[] tupleElements = [parseForeachListElement()];
@@ -158,19 +156,15 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			}
 			
 			trange.match(Semicolon);
+
 			auto iterrated = trange.parseExpression();
-			
-			if(trange.front.type == DoubleDot) {
-				trange.popFront();
-				trange.parseExpression();
-			}
-			
+		
 			trange.match(CloseParen);
 			
 			auto statement = trange.parseStatement();
 			location.spanTo(statement.location);
 			
-			return new AstForeachStatement(location, tupleElements, iterrated, statement);
+			return new ForeachStatement(location, tupleElements, iterrated, statement);
 		
 		case Return :
 			trange.popFront();

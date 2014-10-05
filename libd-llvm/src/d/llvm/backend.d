@@ -28,7 +28,7 @@ final class LLVMBackend {
 	private string linkerParams;
 	private uint bitWidth;
 
-	this(Context context, string name, uint optLevel, string linkerParams, uint bitWidth) {
+	this(Context context, string name, uint optLevel, string linkerParams) {
 		LLVMInitializeX86TargetInfo();
 		LLVMInitializeX86Target();
 		LLVMInitializeX86TargetMC();
@@ -38,7 +38,8 @@ final class LLVMBackend {
 		
 		this.optLevel = optLevel;
 		this.linkerParams = linkerParams;
-		this.bitWidth = bitWidth;
+		version (D_LP64) bitWidth = 64;
+		else bitWidth = 32;
 		
 		pass = new CodeGenPass(context, name, bitWidth);
 		
@@ -107,13 +108,18 @@ final class LLVMBackend {
 		
 		version(OSX) {
 			auto triple = "x86_64-apple-darwin9".ptr;
-		} else {
+		} version (linux) {
 			auto triple = "x86_64-pc-linux-gnu".ptr;
 		}
-
-		auto targetMachine = LLVMCreateTargetMachine(LLVMGetFirstTarget(), triple, "x86-64".ptr, "".ptr, LLVMCodeGenOptLevel.Default, LLVMRelocMode.Default, LLVMCodeModel.Default);
-		if (bitWidth==32) {
-			targetMachine = LLVMCreateTargetMachine(LLVMGetNextTarget(LLVMGetFirstTarget()), triple, "i386".ptr, "".ptr, LLVMCodeGenOptLevel.Default, LLVMRelocMode.Default, LLVMCodeModel.Default);
+		LLVMTargetMachineRef targetMachine;
+		switch (bitWidth) {
+			case 32 : 
+				targetMachine = LLVMCreateTargetMachine(LLVMGetNextTarget(LLVMGetFirstTarget()), triple, "i386".ptr, "".ptr, LLVMCodeGenOptLevel.Default, LLVMRelocMode.Default, LLVMCodeModel.Default);
+			break;
+			case 64 : 
+				targetMachine = LLVMCreateTargetMachine(LLVMGetFirstTarget(), triple, "x86-64".ptr, "".ptr, LLVMCodeGenOptLevel.Default, LLVMRelocMode.Default, LLVMCodeModel.Default);
+			break;
+			default : assert(0,"unspecifyed bitWidth");
 		}
 		
 		scope(exit) LLVMDisposeTargetMachine(targetMachine);
@@ -150,14 +156,13 @@ final class LLVMBackend {
 	}
 	
 	void link(string objFile, string executable) {
-		version(OSX) {
-			auto linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ linkerParams ~ " -lsdrt";
-		} else {
-			auto linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ linkerParams ~ " -lsdrt";
-		}
+		string stdlib = "sdrt";
+                if (bitWidth==32) stdlib ~= "32";
+
+		auto linkCommand = "gcc -o " ~ escapeShellFileName(executable) ~ " " ~ escapeShellFileName(objFile) ~ linkerParams ~ " -l"~stdlib;
 		
 		writeln(linkCommand);
-		system(linkCommand);
+		wait(spawnShell(linkCommand));
 	}
 }
 

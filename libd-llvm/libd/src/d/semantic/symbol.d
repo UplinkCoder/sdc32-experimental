@@ -41,7 +41,6 @@ struct SymbolVisitor {
 		auto tid = typeid(s);
 		
 		import std.traits;
-		import std.typetuple;
 		alias Members = TypeTuple!(__traits(getOverloads, SymbolAnalyzer, "analyze"));
 		foreach(visit; Members) {
 			alias parameters = ParameterTypeTuple!visit;
@@ -125,9 +124,9 @@ struct SymbolAnalyzer {
 		// XXX: maybe monad ?
 		import d.semantic.expression;
 		auto ev = ExpressionVisitor(pass);
-		auto params = f.params = fd.params.map!(p => new Parameter(p.location, tv.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
+		auto params = f.params = fd.params.map!(p => new Parameter(p.location, tv.visit(p.type), p.name, p.value ? (ev.visit(p.value)) : null)).array();
 		
-		// If this is a clusore, we add the context parameter.
+		// If this is a closure, we add the context parameter.
 		if(f.hasContext) {
 			assert(ctxType, "ctxType must be defined if function has a context pointer.");
 			
@@ -178,7 +177,7 @@ struct SymbolAnalyzer {
 			// Update scope.
 			currentScope = f.dscope = f.hasContext
 				? new ClosureScope(f, oldScope)
-				: new SymbolScope(f, oldScope);
+				: new FunctionScope(f, oldScope);
 			
 			ctxType = new ContextType(f);
 			
@@ -272,7 +271,7 @@ struct SymbolAnalyzer {
 			}
 			
 			// Update scope.
-			currentScope = f.dscope = new SymbolScope(f, oldScope);
+			currentScope = f.dscope = new FunctionScope(f, oldScope);
 			
 			ctxType = new ContextType(f);
 			
@@ -324,8 +323,7 @@ struct SymbolAnalyzer {
 				value = ev.visit(d.value);
 			} else {
 				import d.semantic.defaultinitializer;
-				auto div = DefaultInitializerVisitor(pass);
-				value = div.visit(v.location, type);
+				value = InitBuilder(pass).visit(v.location, type);
 			}
 			
 			value = buildImplicitCast(pass, d.location, type, value);
@@ -366,19 +364,25 @@ struct SymbolAnalyzer {
 	}
 	
 	void analyze(IdentifierAliasDeclaration d, SymbolAlias a) {
-		import d.semantic.identifier : IdentifierVisitor;
-		a.symbol = IdentifierVisitor!(function Symbol(identified) {
+		import d.semantic.identifier : AliasResolver;
+		a.symbol = AliasResolver!(function Symbol(identified) {
 			static if(is(typeof(identified) : Symbol)) {
 				return identified;
 			} else {
 				assert(0, "Not implemented");
 			}
-		}, true)(pass).visit(d.identifier);
+		})(pass).visit(d.identifier);
 		
+		process(a);
+	}
+	
+	void process(SymbolAlias a) {
 		// Mangling
 		scheduler.require(a.symbol, Step.Populated);
 		a.mangle = a.symbol.mangle;
 		
+		scheduler.require(a.symbol, Step.Signed);
+		a.hasContext = a.symbol.hasContext;
 		a.step = Step.Signed;
 		
 		scheduler.require(a.symbol, Step.Processed);
@@ -419,8 +423,6 @@ struct SymbolAnalyzer {
 			fieldIndex = oldFieldIndex;
 		}
 		
-		currentScope = s.dscope = new SymbolScope(s, oldScope);
-		
 		auto type = QualType(new StructType(s));
 		thisType = ParamType(type, true);
 		
@@ -431,14 +433,26 @@ struct SymbolAnalyzer {
 		assert(s.linkage == Linkage.D || s.linkage == Linkage.C);
 		s.mangle = "S" ~ manglePrefix;
 		
+		auto dscope = currentScope = s.dscope = s.hasContext
+			? new VoldemortScope(s, oldScope)
+			: new AggregateScope(s, oldScope);
+		
 		fieldIndex = 0;
+		Field[] fields;
+		if (s.hasContext) {
+			auto ctxPtr = QualType(new PointerType(QualType(ctxType)));
+			auto ctx = new Field(s.location, 0, ctxPtr, BuiltinName!"__ctx", new NullLiteral(s.location, ctxPtr));
+			ctx.step = Step.Processed;
+			
+			fieldIndex = 1;
+			fields = [ctx];
+		}
 		
 		auto dv = DeclarationVisitor(pass, AggregateType.Struct);
 		
 		auto members = dv.flatten(d.members, s);
 		s.step = Step.Populated;
 		
-		Field[] fields;
 		auto otherSymbols = members.filter!((m) {
 			if(auto f = cast(Field) m) {
 				fields ~= f;
@@ -450,10 +464,9 @@ struct SymbolAnalyzer {
 		
 		scheduler.require(fields, Step.Signed);
 		
-		auto tuple = new TupleExpression(d.location, fields.map!(f => f.value).array());
-		tuple.type = type;
-		
+		auto tuple = new CompileTimeTupleExpression(d.location, type, fields.map!(f => cast(CompileTimeExpression) f.value).array());
 		auto init = new Variable(d.location, type, BuiltinName!"init", tuple);
+
 		init.storage = Storage.Static;
 		init.mangle = "_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ s.mangle;
 		
@@ -486,7 +499,6 @@ struct SymbolAnalyzer {
 			methodIndex = oldMethodIndex;
 		}
 		
-		auto dscope = currentScope = c.dscope = new SymbolScope(c, oldScope);
 		thisType = ParamType(new ClassType(c), false);
 		thisType.isFinal = true;
 		
@@ -496,24 +508,34 @@ struct SymbolAnalyzer {
 		
 		c.mangle = "C" ~ manglePrefix;
 		
+		auto dscope = currentScope = c.dscope = c.hasContext
+			? new VoldemortScope(c, oldScope)
+			: new AggregateScope(c, oldScope);
+		
 		Field[] baseFields;
 		Method[] baseMethods;
 		foreach(i; d.bases) {
-			import d.semantic.identifier : IdentifierVisitor;
-			auto type = IdentifierVisitor!(function ClassType(identified) {
-				static if(is(typeof(identified) : QualType)) {
-					return cast(ClassType) identified.type;
+			import d.semantic.identifier : AliasResolver;
+			c.base = AliasResolver!(function Class(identified) {
+				static if(is(typeof(identified) : Symbol)) {
+					if(auto c = cast(Class) identified) {
+						return c;
+					}
+				}
+				
+				static if(is(typeof(identified.location))) {
+					import d.exception;
+					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not a class.");
 				} else {
-					return null;
+					// for typeof(null)
+					assert(0);
 				}
 			})(pass).visit(i);
 			
-			assert(type, "Only classes are supported as base for now, " ~ typeid(type).toString() ~ " given.");
-			
-			c.base = type.dclass;
 			break;
 		}
 		
+		// If no inheritance is specified, inherit from object.
 		if(!c.base) {
 			c.base = pass.object.getObject();
 		}
@@ -545,10 +567,21 @@ struct SymbolAnalyzer {
 				} else if(auto method = cast(Method) m) {
 					baseMethods ~= method;
 					methodIndex = max(methodIndex, method.index);
+					
+					c.dscope.addOverloadableSymbol(method);
 				}
 			}
 			
 			fieldIndex++;
+		}
+		
+		if (c.hasContext) {
+			// XXX: check for duplicate.
+			auto ctxPtr = QualType(new PointerType(QualType(ctxType)));
+			auto ctx = new Field(c.location, fieldIndex++, ctxPtr, BuiltinName!"__ctx", new NullLiteral(c.location, ctxPtr));
+			ctx.step = Step.Processed;
+			
+			baseFields ~= ctx;
 		}
 		
 		auto dv = DeclarationVisitor(pass, AggregateType.Class);
@@ -556,7 +589,7 @@ struct SymbolAnalyzer {
 		
 		c.step = Step.Signed;
 		
-		Method[] candidates = baseMethods;
+		uint overloadCount = 0;
 		foreach(m; members) {
 			if(auto method = cast(Method) m) {
 				scheduler.require(method, Step.Signed);
@@ -565,8 +598,8 @@ struct SymbolAnalyzer {
 				auto rt = mt.returnType;
 				auto ats = mt.paramTypes[1 .. $];
 				
-				CandidatesLoop: foreach(ref candidate; candidates) {
-					if(!candidate || m.name != candidate.name) {
+				CandidatesLoop: foreach(ref candidate; baseMethods) {
+					if(!candidate || method.name != candidate.name) {
 						continue;
 					}
 					
@@ -598,6 +631,23 @@ struct SymbolAnalyzer {
 					
 					if(method.index == 0) {
 						method.index = candidate.index;
+						
+						// Remove candidate from scope.
+						auto os = cast(OverloadSet) dscope.resolve(method.name);
+						assert(os, "This must be an overload set");
+						
+						uint i = 0;
+						while (os.set[i] !is candidate) {
+							i++;
+						}
+						
+						foreach(s; os.set[i + 1 .. $]) {
+							os.set[i++] = s;
+						}
+						
+						os.set = os.set[0 .. i];
+						
+						overloadCount++;
 						candidate = null;
 						break;
 					} else {
@@ -616,14 +666,20 @@ struct SymbolAnalyzer {
 			}
 		}
 		
-		// Remaining candidates must be added to scope.
-		baseMethods.length = candidates.length;
-		uint i = 0;
-		foreach(candidate; candidates) {
-			if(candidate) {
-				c.dscope.addOverloadableSymbol(candidate);
-				baseMethods[i++] = candidate;
+		// Remove overlaoded base method.
+		if (overloadCount) {
+			uint i = 0;
+			while (baseMethods[i] !is null) {
+				i++;
 			}
+			
+			foreach(baseMethod; baseMethods[i + 1 .. $]) {
+				if(baseMethod) {
+					baseMethods[i++] = baseMethod;
+				}
+			}
+			
+			baseMethods = baseMethods[0 .. i];
 		}
 		
 		c.members = cast(Symbol[]) baseFields;
@@ -780,10 +836,12 @@ struct SymbolAnalyzer {
 	void analyze(Template t, TemplateInstance i) {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
+		auto oldCtxType = ctxType;
 		
 		scope(exit) {
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
+			ctxType = oldCtxType;
 		}
 		
 		manglePrefix = i.mangle;
@@ -791,19 +849,32 @@ struct SymbolAnalyzer {
 		
 		// Prefilled members are template arguments.
 		foreach(s; i.members) {
+			if (s.hasContext) {
+				assert(t.storage >= Storage.Static, "template can only have one context");
+				
+				import d.semantic.closure;
+				auto cf = ContextFinder(pass);
+				ctxType = cf.visit(s);
+				
+				i.storage = Storage.Local;
+			}
+			
 			dscope.addSymbol(s);
 		}
 		
-		// XXX: that is doomed to explode fireworks style.
-		import d.semantic.declaration, d.ast.base;
-		auto dv = DeclarationVisitor(pass, t.storage);
+		import d.semantic.declaration;
+		auto dv = DeclarationVisitor(
+			pass,
+			i.storage,
+			(i.storage >= Storage.Static)
+				? AddContext.No
+				: AddContext.Yes,
+		);
 		
 		auto members = dv.flatten(t.members, i);
-		i.step = Step.Populated;
-		
 		scheduler.require(members);
-		i.members ~= members;
 		
+		i.members ~= members;
 		i.step = Step.Processed;
 	}
 }

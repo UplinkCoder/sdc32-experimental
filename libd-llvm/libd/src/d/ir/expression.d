@@ -138,6 +138,24 @@ class ContextExpression : Expression {
 }
 
 /**
+ * Virtual table
+ * XXX: This is highly dubious. Explore the alternatives and get rid of that.
+ */
+class VtblExpression : Expression {
+	Class dclass;
+	
+	this(Location location, Class dclass) {
+		super(location, QualType(new PointerType(getBuiltin(TypeKind.Void))));
+		
+		this.dclass = dclass;
+	}
+	
+	override string toString(Context c) const {
+		return dclass.toString(c) ~ ".__vtbl";
+	}
+}
+
+/**
  * Boolean literal
  */
 class BooleanLiteral : CompileTimeExpression {
@@ -157,12 +175,13 @@ class BooleanLiteral : CompileTimeExpression {
 /**
  * Integer literal
  */
-class IntegerLiteral(bool isSigned) : CompileTimeExpression { // if isIntegral!ValueType
-	static if (isSigned) {
-		alias ValueType = long;
-	} else { 
-		alias ValueType = ulong;
+class IntegerLiteral(bool isSigned) : CompileTimeExpression {
+	static if(isSigned) {
+		alias long ValueType;
+	} else {
+		alias ulong ValueType;
 	}
+	
 	ValueType value;
 	
 	this(Location location, ValueType value, TypeKind kind) in {
@@ -306,12 +325,14 @@ class CastExpression : Expression {
  * new
  */
 class NewExpression : Expression {
-	Expression[] args;
+	Expression dinit;
 	Expression ctor;
+	Expression[] args;
 	
-	this(Location location, QualType type, Expression ctor, Expression[] args) {
+	this(Location location, QualType type, Expression dinit, Expression ctor, Expression[] args) {
 		super(location, type);
 		
+		this.dinit = dinit;
 		this.ctor = ctor;
 		this.args = args;
 	}
@@ -370,6 +391,7 @@ class FieldExpression : Expression {
 
 /**
  * IdentifierExpression that as been resolved as a Function.
+ * XXX: Deserve to be merged with VariableExpression somehow.
  */
 class FunctionExpression : Expression {
 	Function fun;
@@ -406,6 +428,7 @@ class MethodExpression : Expression {
 
 /**
  * IdentifierExpression that as been resolved as a Parameter.
+ * XXX: Deserve to be merged with VariableExpression somehow.
  */
 class ParameterExpression : Expression {
 	Parameter param;
@@ -446,7 +469,7 @@ class DynamicTypeidExpression : Expression {
 /**
  * Used for type identifier = void;
  */
-class VoidInitializer : Expression {
+class VoidInitializer : CompileTimeExpression {
 	this(Location location) {
 		super(location, getBuiltin(TypeKind.None));
 	}
@@ -472,10 +495,10 @@ template TupleExpressionImpl(bool isCompileTime = false) {
 	
 	class TupleExpressionImpl : E {
 		E[] values;
-	
-		this(Location location, E[] values) {
+		
+		this(Location location, QualType t, E[] values) {
 			// Implement type tuples.
-			super(location, QualType(null));
+			super(location, t);
 		
 			this.values = values;
 		}

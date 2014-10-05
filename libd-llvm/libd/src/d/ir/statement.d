@@ -17,7 +17,6 @@ alias IfStatement = d.ast.statement.IfStatement!(Expression, Statement);
 alias WhileStatement = d.ast.statement.WhileStatement!(Expression, Statement);
 alias DoWhileStatement = d.ast.statement.DoWhileStatement!(Expression, Statement);
 alias ForStatement = d.ast.statement.ForStatement!(Expression, Statement);
-alias ForeachStatement = d.ast.statement.ForeachStatement!(Expression,Statement);
 alias ReturnStatement = d.ast.statement.ReturnStatement!(Expression, Statement);
 alias SwitchStatement = d.ast.statement.SwitchStatement!(Expression, Statement);
 alias CaseStatement = d.ast.statement.CaseStatement!(CompileTimeExpression, Statement);

@@ -1,20 +1,14 @@
 module d.semantic.declaration;
 
 import d.semantic.semantic;
-import d.source;
 
 import d.ast.base;
 import d.ast.conditional;
 import d.ast.declaration;
-import d.ast.dmodule;
 
 import d.ir.dscope;
-import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
-
-import d.parser.base;
-import d.parser.declaration;
 
 import std.algorithm;
 import std.array;
@@ -39,45 +33,11 @@ struct DeclarationVisitor {
 	
 	alias Step = SemanticPass.Step;
 	
-	PoisonScope poisonScope;
-	
-	CtUnitLevel ctLevel;
 	CtUnit[] ctUnits;
+	ConditionalBranch[] cdBranches;
 	
-	enum CtUnitLevel : ubyte {
-		Done,
-		Conditional,
-		Unknown,
-	}
-	
-	enum CtUnitType : ubyte {
-		Symbols,
-		StaticIf,
-		Mixin,
-	}
-	
-	static struct SymbolUnit {
-		Declaration d;
-		Symbol s;
-	}
-	
-	static struct CtUnit {
-		CtUnitLevel level;
-		CtUnitType type;
-		union {
-			SymbolUnit[] symbols;
-			Mixin!Declaration mixinDecl;
-			struct {
-				// TODO: special declaration subtype here.
-				StaticIf!Declaration staticIf;
-				CtUnit[] items;
-				CtUnit[] elseItems;
-			};
-		}
-	}
-	
-	import std.bitmanip;
 	private {
+		import std.bitmanip;
 		mixin(bitfields!(
 			Linkage, "linkage", 3,
 			Visibility, "visibility", 3,
@@ -85,7 +45,8 @@ struct DeclarationVisitor {
 			AggregateType, "aggregateType", 2,
 			AddContext, "addContext", 1,
 			bool, "isOverride", 1,
-			uint, "", 4,
+			CtUnitLevel, "ctLevel", 2,
+			uint, "", 2,
 		));
 	}
 	
@@ -124,24 +85,14 @@ struct DeclarationVisitor {
 	}
 	
 	Symbol[] flatten(Declaration[] decls, Symbol parent) {
-		auto oldScope = currentScope;
-		auto oldPoisonScope = poisonScope;
-		scope(exit) {
-			currentScope = oldScope;
-			poisonScope = oldPoisonScope;
-		}
-		
-		currentScope = poisonScope = new PoisonScope(currentScope);
-		
 		auto ctus = flattenDecls(decls);
-		
 		parent.step = Step.Populated;
-		poisonScope.isPoisoning = true;
 		
+		auto dscope = currentScope;
+		
+		dscope.setPoisoningMode();
 		scope(exit) {
-			poisonScope.isPoisoning = false;
-			poisonScope.stackSize = 0;
-			poisonScope.stack = [];
+			dscope.clearPoisoningMode();
 		}
 		
 		return flatten(ctus)[0].symbols.map!(su => su.s).array();
@@ -239,20 +190,20 @@ struct DeclarationVisitor {
 	} body {
 		auto d = unit.staticIf;
 		
-		import d.semantic.caster, d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
-		
-		auto condition = evaluate(buildExplicitCast(pass, d.condition.location, QualType(new BuiltinType(TypeKind.Bool)), ev.visit(d.condition)));
-		
-		auto poisonScope = cast(PoisonScope) currentScope;
-		assert(poisonScope);
+		import d.ir.expression, d.semantic.caster, d.semantic.expression;
+		auto condition = evaluate(buildExplicitCast(
+			pass,
+			d.condition.location,
+			QualType(new BuiltinType(TypeKind.Bool)),
+			ExpressionVisitor(pass).visit(d.condition),
+		));
 		
 		CtUnit[] items;
 		if((cast(BooleanLiteral) condition).value) {
-			poisonScope.resolveStaticIf(d, true);
+			currentScope.resolveConditional(d, true);
 			items = unit.items;
 		} else {
-			poisonScope.resolveStaticIf(d, false);
+			currentScope.resolveConditional(d, false);
 			items = unit.elseItems;
 		}
 		
@@ -274,24 +225,26 @@ struct DeclarationVisitor {
 	private auto flattenMixin(CtUnit unit, CtUnitLevel to) in {
 		assert(unit.type == CtUnitType.Mixin);
 	} body {
-		import d.semantic.expression : ExpressionVisitor;
-		auto ev = ExpressionVisitor(pass);
-		
 		auto d = unit.mixinDecl;
-		auto value = evaluate(ev.visit(d.value));
+
+		import d.semantic.expression : ExpressionVisitor;
+		auto value = evaluate(ExpressionVisitor(pass).visit(d.value));
 		
 		// XXX: in order to avoid identifier resolution weirdness.
 		auto location = d.location;
 		
+		import d.ir.expression;
 		if(auto str = cast(StringLiteral) value) {
 			import d.lexer;
 			auto source = new MixinSource(location, str.value);
 			auto trange = lex!((line, begin, length) => Location(source, line, begin, length))(str.value ~ '\0', context);
 			
+			import d.parser.base;
 			trange.match(TokenType.Begin);
 			
 			Declaration[] decls;
 			while(trange.front.type != TokenType.End) {
+				import d.parser.declaration;
 				decls ~= trange.parseDeclaration();
 			}
 			
@@ -338,8 +291,7 @@ struct DeclarationVisitor {
 		f.hasThis = isStatic ? false : aggregateType != AggregateType.None;
 		f.hasContext = isStatic ? false : !!addContext;
 		
-		currentScope.addOverloadableSymbol(f);
-		
+		addOverloadableSymbol(f);
 		select(d, f);
 	}
 	
@@ -357,8 +309,7 @@ struct DeclarationVisitor {
 		v.visibility = visibility;
 		v.storage = storage;
 		
-		currentScope.addSymbol(v);
-		
+		addSymbol(v);
 		select(d, v);
 	}
 	
@@ -374,8 +325,9 @@ struct DeclarationVisitor {
 		s.visibility = visibility;
 		s.storage = storage;
 		
-		currentScope.addSymbol(s);
+		s.hasContext = storage.isStatic ? false : !!addContext;
 		
+		addSymbol(s);
 		select(d, s);
 	}
 	
@@ -385,8 +337,9 @@ struct DeclarationVisitor {
 		c.visibility = visibility;
 		c.storage = storage;
 		
-		currentScope.addSymbol(c);
+		c.hasContext = storage.isStatic ? false : !!addContext;
 		
+		addSymbol(c);
 		select(d, c);
 	}
 	
@@ -396,8 +349,7 @@ struct DeclarationVisitor {
 			e.linkage = linkage;
 			e.visibility = visibility;
 			
-			currentScope.addSymbol(e);
-			
+			addSymbol(e);
 			select(d, e);
 		} else {
 			// XXX: Code duplication with symbols. Refactor.
@@ -409,6 +361,7 @@ struct DeclarationVisitor {
 				v.visibility = visibility;
 				
 				if(!vd.value) {
+					import d.ir.expression;
 					if(previous) {
 						if(!one) {
 							one = new IntegerLiteral!true(vd.location, 1, TypeKind.Int);
@@ -423,7 +376,7 @@ struct DeclarationVisitor {
 				v.storage = Storage.Enum;
 				previous = vd.value;
 				
-				currentScope.addSymbol(v);
+				addSymbol(v);
 				select(vd, v);
 			}
 		}
@@ -436,7 +389,7 @@ struct DeclarationVisitor {
 		t.visibility = visibility;
 		t.storage = storage;
 		
-		currentScope.addOverloadableSymbol(t);
+		addOverloadableSymbol(t);
 		select(d, t);
 	}
 	
@@ -447,7 +400,7 @@ struct DeclarationVisitor {
 		a.visibility = visibility;
 		a.storage = Storage.Enum;
 		
-		currentScope.addSymbol(a);
+		addSymbol(a);
 		select(d, a);
 	}
 	
@@ -458,7 +411,7 @@ struct DeclarationVisitor {
 		a.visibility = visibility;
 		a.storage = Storage.Enum;
 		
-		currentScope.addSymbol(a);
+		addSymbol(a);
 		select(d, a);
 	}
 	
@@ -469,8 +422,20 @@ struct DeclarationVisitor {
 		a.visibility = visibility;
 		a.storage = Storage.Enum;
 		
-		currentScope.addSymbol(a);
+		addSymbol(a);
 		select(d, a);
+	}
+	
+	void visit(AliasThisDeclaration d) {
+		assert(aggregateType != AggregateType.None, "alias this can only appear in aggregates.");
+		
+		// TODO: have a better scheme to do this in order to:
+		// - keep the location of the alias for error messages.
+		// - not redo identifier resolution all the time.
+		auto as = cast(AggregateScope) currentScope;
+		assert(as !is null, "Aggregate must have aggregate scope");
+		
+		as.aliasThis ~= d.name;
 	}
 	
 	void visit(LinkageDeclaration d) {
@@ -526,7 +491,7 @@ struct DeclarationVisitor {
 		currentScope.imports ~= addToScope;
 	}
 	
-	void visit(StaticIf!Declaration d) {
+	void visit(StaticIfDeclaration d) {
 		auto finalCtLevel = CtUnitLevel.Conditional;
 		auto oldCtLevel = ctLevel;
 		scope(exit) ctLevel = max(finalCtLevel, oldCtLevel);
@@ -540,12 +505,9 @@ struct DeclarationVisitor {
 		unit.type = CtUnitType.StaticIf;
 		unit.staticIf = d;
 		
-		if(poisonScope) {
-			poisonScope.pushStaticIf(d, true);
-		}
-		
-		scope(exit) if(poisonScope) {
-			poisonScope.popStaticIf(d);
+		cdBranches ~= ConditionalBranch(d, true);
+		scope(exit) {
+			cdBranches = cdBranches[0 .. $ - 1];
 		}
 		
 		ctUnits = [CtUnit()];
@@ -560,10 +522,7 @@ struct DeclarationVisitor {
 		finalCtLevel = max(finalCtLevel, ctLevel);
 		ctLevel = CtUnitLevel.Conditional;
 		
-		if(poisonScope) {
-			poisonScope.popStaticIf(d);
-			poisonScope.pushStaticIf(d, false);
-		}
+		cdBranches = cdBranches[0 .. $ - 1] ~ ConditionalBranch(d, false);
 		
 		ctUnits = [CtUnit()];
 		ctUnits[0].level = CtUnitLevel.Conditional;
@@ -615,169 +574,61 @@ struct DeclarationVisitor {
 		ctUnits ~= unit;
 		ctUnits ~= CtUnit();
 	}
+
+private:
+	void addSymbol(Symbol s) {
+		if (cdBranches.length) {
+			currentScope.addConditionalSymbol(s, cdBranches);
+		} else {
+			currentScope.addSymbol(s);
+		}
+	}
+
+	void addOverloadableSymbol(Symbol s) {
+		if (cdBranches.length) {
+			currentScope.addConditionalSymbol(s, cdBranches);
+		} else {
+			currentScope.addOverloadableSymbol(s);
+		}
+	}
 }
 
 private :
-final class PoisonScope : NestedScope {
-	bool isPoisoning;
-	bool isPoisoned;
-	
-	uint stackSize;
-	ConditionalBranch[] stack;
-	
-	this(Scope parent) {
-		super(parent);
-	}
-	
-	void pushStaticIf(StaticIf!Declaration d, bool branch) {
-		if(stackSize == stack.length) {
-			if(stackSize) {
-				stack.length = 2 * stackSize;
-			} else {
-				// Reserve 2 nested level of static ifs. Should be more than engough for most cases.
-				stack.length = 2;
-			}
-		}
-		
-		stack[stackSize++] = ConditionalBranch(d, branch);
-	}
-	
-	void popStaticIf(StaticIf!Declaration d) {
-		stackSize--;
-		assert(stack[stackSize].d == d);
-	}
-	
-	// Use of smarter data structure can probably improve things here :D
-	void resolveStaticIf(StaticIf!Declaration d, bool branch) {
-		foreach(s; symbols.values) {
-			if(auto cs = cast(ConditionalSet) s) {
-				ConditionalEntry[] newSet;
-				foreach(cd; cs.set) {
-					if(cd.stack[0].d is d) {
-						// If this the right branch, then proceed. Otherwize forget.
-						if(cd.stack[0].branch == branch) {
-							cd.stack = cd.stack[1 .. $];
-							if(cd.stack.length == 0) {
-								// FIXME: Check if it is an overloadable symbol.
-								parent.addSymbol(cd.entry);
-							} else {
-								newSet ~= cd;
-							}
-						}
-					} else {
-						newSet ~= cd;
-					}
-				}
-				
-				if(newSet.length) {
-					cs.set = newSet;
-				} else {
-					symbols[cs.name] = new Poison(cs.name);
-				}
-			}
-		}
-	}
-	
-	void test(Name name) {
-		if(isPoisoned) {
-			auto p = name in symbols;
-			if(p && cast(Poison) *p) {
-				throw new Exception("poisoned");
-			}
-		}
-	}
-	
-	void addConditionalSymbol(Symbol s) {
-		auto entry = ConditionalEntry(stack[0 .. stackSize].dup, s);
-		
-		auto csPtr = s.name in symbols;
-		if(csPtr) {
-			if(auto set = cast(ConditionalSet) *csPtr) {
-				set.set ~= entry;
-				return;
-			}
-			
-			assert(0);
-		}
-		
-		symbols[s.name] = new ConditionalSet(s.location, s.name, [entry]);
-	}
-	
-	override void addSymbol(Symbol s) {
-		test(s.name);
-		
-		if(stackSize == 0) {
-			parent.addSymbol(s);
-		} else {
-			addConditionalSymbol(s);
-		}
-	}
-	
-	override void addOverloadableSymbol(Symbol s) {
-		test(s.name);
-		
-		if(stackSize == 0) {
-			parent.addOverloadableSymbol(s);
-		} else {
-			addConditionalSymbol(s);
-		}
-	}
-	
-	void resolveConditional(Name name) {
-		auto p = name in symbols;
-		if(p) {
-			if(auto cs = cast(ConditionalSet) *p) {
-				// Resolve conditonal and poison.
-				import d.exception;
-				throw new CompileException(cs.location, "Conditionnal delcaration not implemented");
-			}
-		} else if(isPoisoning) {
-			symbols[name] = new Poison(name);
-			
-			isPoisoned = true;
-		}
-	}
-	
-	override Symbol resolve(Name name) {
-		resolveConditional(name);
-		
-		return parent.resolve(name);
-	}
-	
-	override Symbol search(Name name) {
-		resolveConditional(name);
-		
-		return parent.search(name);
-	}
+
+enum CtUnitLevel {
+	Done,
+	Conditional,
+	Unknown,
 }
 
-final class Poison : Symbol {
-	this(Location location, Name name) {
-		super(location, name);
-	}
+enum CtUnitType {
+	Symbols,
+	StaticIf,
+	Mixin,
+}
+
+struct SymbolUnit {
+	Declaration d;
+	Symbol s;
+}
+
+struct CtUnit {
+	import std.bitmanip;
+	mixin(bitfields!(
+		CtUnitLevel, "level", 2,
+		CtUnitType, "type", 2,
+		uint, "", 4,
+	));
 	
-	this(Name name) {
-		super(Location.init, name);
-	}
-}
-
-struct ConditionalBranch {
-	StaticIf!Declaration d;
-	bool branch;
-}
-
-struct ConditionalEntry {
-	ConditionalBranch[] stack;
-	Symbol entry;
-}
-
-final class ConditionalSet : Symbol {
-	ConditionalEntry[] set;
-	
-	this(Location location, Name name, ConditionalEntry[] set) {
-		super(location, name);
-		
-		this.set = set;
+	union {
+		SymbolUnit[] symbols;
+		Mixin!Declaration mixinDecl;
+		struct {
+			// TODO: special declaration subtype here.
+			StaticIfDeclaration staticIf;
+			CtUnit[] items;
+			CtUnit[] elseItems;
+		};
 	}
 }
 

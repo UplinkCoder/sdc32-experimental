@@ -102,7 +102,7 @@ class Function : ValueSymbol {
 	Parameter[] params;
 	Statement fbody;
 	
-	SymbolScope dscope;
+	FunctionScope dscope;
 	
 	this(Location location, FunctionType type, Name name, Parameter[] params, Statement fbody) {
 		super(location, name);
@@ -251,6 +251,13 @@ class SymbolAlias : Symbol {
 		
 		this.symbol = symbol;
 	}
+	/+
+	invariant() {
+		if (step >= Step.Signed) {
+			assert(symbol && hasContext == symbol.hasContext);
+		}
+	}
+	+/
 }
 
 /**
@@ -288,7 +295,7 @@ class Class : TypeSymbol {
 	
 	Symbol[] members;
 	
-	SymbolScope dscope;
+	AggregateScope dscope;
 	
 	this(Location location, Name name, Symbol[] members) {
 		super(location, name);
@@ -305,7 +312,7 @@ class Interface : TypeSymbol {
 	Interface[] bases;
 	Symbol[] members;
 	
-	SymbolScope dscope;
+	AggregateScope dscope;
 	
 	this(Location location, Name name, Interface[] bases, Symbol[] members) {
 		super(location, name);
@@ -321,7 +328,7 @@ class Interface : TypeSymbol {
 class Struct : TypeSymbol {
 	Symbol[] members;
 	
-	SymbolScope dscope;
+	AggregateScope dscope;
 	
 	this(Location location, Name name, Symbol[] members) {
 		super(location, name);

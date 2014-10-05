@@ -80,7 +80,7 @@ struct ExpressionVisitor {
 		return e;
 	}
 	
-	private Expression getTemporaryRvalue(Expression value) {
+	private Expression getRvalue(Expression value) {
 		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
 		v.storage = Storage.Enum;
 		v.step = Step.Processed;
@@ -88,10 +88,10 @@ struct ExpressionVisitor {
 		return new VariableExpression(value.location, v);
 	}
 	
-	private Expression getTemporaryLvalue(Expression value) {
+	private Expression getLvalue(Expression value) {
 		auto pt = QualType(new PointerType(value.type));
 		auto ptr = new UnaryExpression(value.location, pt, UnaryOp.AddressOf, value);
-		auto v = getTemporaryRvalue(ptr);
+		auto v = getRvalue(ptr);
 		
 		return new UnaryExpression(value.location, value.type, UnaryOp.Dereference, v);
 	}
@@ -140,7 +140,7 @@ struct ExpressionVisitor {
 			case AddAssign :
 			case SubAssign :
 				if(auto pt = cast(PointerType) peelAlias(lhs.type).type) {
-					lhs = getTemporaryLvalue(lhs);
+					lhs = getLvalue(lhs);
 					
 					// FIXME: check that rhs is an integer.
 					if(op == SubAssign) {
@@ -292,7 +292,7 @@ struct ExpressionVisitor {
 			case PostInc :
 			case PostDec :
 				if(auto pt = cast(PointerType) peelAlias(expr.type).type) {
-					expr = getTemporaryLvalue(expr);
+					expr = getLvalue(expr);
 					
 					Expression n = new IntegerLiteral!true(e.location, (op == PreInc || op == PostInc)? 1 : -1, TypeKind.Ulong);
 					auto i = new IndexExpression(e.location, pt.pointed, expr, [n]);
@@ -303,7 +303,7 @@ struct ExpressionVisitor {
 						return r;
 					}
 					
-					auto l = getTemporaryRvalue(expr);
+					auto l = getRvalue(expr);
 					r = new BinaryExpression(e.location, expr.type, BinaryOp.Comma, l, r);
 					return new BinaryExpression(e.location, expr.type, BinaryOp.Comma, r, l);
 				}
@@ -415,16 +415,20 @@ struct ExpressionVisitor {
 		pass.scheduler.require(f, Step.Signed);
 		
 		assert(!f.hasThis || !f.hasContext, "this + context not implemented");
+		if (f.hasThis) {
+			auto type = f.type.paramTypes[0];
+			auto ctx = buildImplicitCast(pass, location, QualType(type.type, type.qualifier), new ThisExpression(location, QualType(thisType.type)));
+			return new MethodExpression(location, ctx, f);
+		}
 		
-		Expression ctx = f.hasThis
-			? new ThisExpression(location, QualType(thisType.type))
-			: f.hasContext
-				? new ContextExpression(location, ctxType)
-				: null;
+		if (f.hasContext) {
+			import d.semantic.closure;
+			auto cf = ContextFinder(pass);
+			
+			return new MethodExpression(location, new ContextExpression(location, cf.visit(f)), f);
+		}
 		
-		return ctx
-			? new MethodExpression(location, ctx, f)
-			: new FunctionExpression(location, f);
+		return new FunctionExpression(location, f);
 	}
 	
 	Expression visit(AstCallExpression c) {
@@ -449,10 +453,12 @@ struct ExpressionVisitor {
 	Expression visit(IdentifierCallExpression c) {
 		auto args = c.args.map!(a => visit(a)).array();
 		
+		// XXX: Why are doing this here ? Shouldn't this be done in the identifier module ?
+		
 		// XXX: massive duplication in the callback. DMD won't accept anything else :(
 		import d.ast.identifier;
 		if(auto tidi = cast(TemplateInstanciationDotIdentifier) c.callee) {
-			return TemplateDotIdentifierVisitor!(delegate Expression(identified) {
+			return TemplateDotIdentifierResolver!(delegate Expression(identified) {
 				alias T = typeof(identified);
 				
 				static if(is(T : Expression)) {
@@ -473,9 +479,8 @@ struct ExpressionVisitor {
 			})(pass).resolve(tidi, args);
 		}
 		
-		return IdentifierVisitor!(delegate Expression(identified) {
+		return SymbolResolver!(delegate Expression(identified) {
 			alias T = typeof(identified);
-			
 			static if(is(T : Expression)) {
 				return handleCall(c.location, identified, args);
 			} else static if(is(T : QualType)) {
@@ -500,11 +505,11 @@ struct ExpressionVisitor {
 		})(pass).visit(c.callee);
 	}
 	
+	// XXX: factorize with NewExpression
 	private Expression handleCtor(Location location, Location iloc, StructType type, Expression[] args) {
 		import d.semantic.defaultinitializer;
-		auto div = DefaultInitializerVisitor(pass);
-		auto di = div.visit(iloc, QualType(type));
-		return IdentifierVisitor!(delegate Expression(identified) {
+		auto di = InstanceBuilder(pass).visit(iloc, QualType(type));
+		return AliasResolver!(delegate Expression(identified) {
 			alias T = typeof(identified);
 			static if(is(T : Symbol)) {
 				if (auto f = cast(Function) identified) {
@@ -523,7 +528,7 @@ struct ExpressionVisitor {
 			}
 			
 			return pass.raiseCondition!Expression(location, type.dstruct.name.toString(pass.context) ~ " isn't callable.");
-		}, true)(pass).resolveInSymbol(location, type.dstruct, BuiltinName!"__ctor");
+		})(pass).resolveInSymbol(location, type.dstruct, BuiltinName!"__ctor");
 	}
 	
 	private Expression handleIFTI(Location location, Location iloc, Template t, Expression[] args) {
@@ -535,8 +540,9 @@ struct ExpressionVisitor {
 		auto i = ti.instanciate(location, t, [], args);
 		scheduler.require(i);
 		
-		return IdentifierVisitor!(delegate Expression(identified) {
-			static if(is(typeof(identified) : Expression)) {
+		return SymbolResolver!(delegate Expression(identified) {
+			alias T = typeof(identified);
+			static if(is(T : Expression)) {
 				return identified;
 			} else {
 				return pass.raiseCondition!Expression(location, t.name.toString(pass.context) ~ " isn't callable.");
@@ -661,21 +667,19 @@ struct ExpressionVisitor {
 		return new CallExpression(location, QualType(returnType.type, returnType.qualifier), callee, args);
 	}
 	
+	// XXX: factorize with handleCtor
 	Expression visit(AstNewExpression e) {
 		auto args = e.args.map!(a => visit(a)).array();
-
-		import d.semantic.type;
-		auto tv = TypeVisitor(pass);
-		auto type = tv.visit(e.type);
-		auto ctor = IdentifierVisitor!(delegate FunctionExpression(identified) {
+		
+		import d.semantic.type, d.semantic.defaultinitializer;
+		auto type = TypeVisitor(pass).visit(e.type);
+		auto di = NewBuilder(pass).visit(e.location, type);
+		auto ctor = AliasResolver!(delegate FunctionExpression(identified) {
 			static if(is(typeof(identified) : Symbol)) {
 				if(auto f = cast(Function) identified) {
 					pass.scheduler.require(f, Step.Signed);
 					return new FunctionExpression(e.location, f);
 				} else if(auto s = cast(OverloadSet) identified) {
-					import d.semantic.defaultinitializer;
-					auto div = DefaultInitializerVisitor(pass);
-					auto di = div.visit(e.location, type);
 					auto m = chooseOverload(e.location, s.set.map!(delegate Expression(s) {
 						if (auto f = cast(Function) s) {
 							pass.scheduler.require(f, Step.Signed);
@@ -691,7 +695,7 @@ struct ExpressionVisitor {
 			}
 			
 			assert(0, "Gimme some construtor !");
-		}, true)(pass).resolveInType(e.location, type, BuiltinName!"__ctor");
+		})(pass).resolveInType(e.location, type, BuiltinName!"__ctor");
 		
 		auto funType = ctor.fun.type;
 		if(!funType) {
@@ -706,16 +710,15 @@ struct ExpressionVisitor {
 			arg = buildArgument(arg, pt);
 		}
 		
-		if(!cast(ClassType) peelAlias(type).type) {
+		if(typeid({ return peelAlias(type).type; } ()) !is typeid(ClassType)) {
 			type = QualType(new PointerType(type));
 		}
 		
-		return new NewExpression(e.location, type, ctor, args);
+		return new NewExpression(e.location, type, di, ctor, args);
 	}
 	
 	Expression visit(ThisExpression e) {
 		e.type = QualType(thisType.type, thisType.qualifier);
-		
 		return e;
 	}
 	
@@ -781,20 +784,21 @@ struct ExpressionVisitor {
 			return new DynamicTypeidExpression(location, QualType(new ClassType(classInfo)), e);
 		}
 		
-		return handleTypeid(location, e.type);
+		return getTypeInfo(location, e.type);
 	}
 	
-	private Expression handleTypeid(Location location, QualType t) {
-		alias StaticTypeidExpression = d.ir.expression.StaticTypeidExpression;
-		
-		Class typeInfo;
-		if(cast(ClassType) peelAlias(t).type) {
-			typeInfo = pass.object.getClassInfo();
-		} else {
-			typeInfo = pass.object.getTypeInfo();
+	auto getTypeInfo(Location location, QualType t) {
+		if(auto ct = cast(ClassType) peelAlias(t).type) {
+			return getClassInfo(location, ct);
 		}
 		
-		return new StaticTypeidExpression(location, QualType(new ClassType(typeInfo)), t);
+		alias StaticTypeidExpression = d.ir.expression.StaticTypeidExpression;
+		return new StaticTypeidExpression(location, QualType(new ClassType(pass.object.getTypeInfo())), t);
+	}
+	
+	auto getClassInfo(Location location, ClassType t) {
+		alias StaticTypeidExpression = d.ir.expression.StaticTypeidExpression;
+		return new StaticTypeidExpression(location, QualType(new ClassType(pass.object.getClassInfo())), QualType(t));
 	}
 	
 	Expression visit(AstTypeidExpression e) {
@@ -803,15 +807,15 @@ struct ExpressionVisitor {
 	
 	Expression visit(AstStaticTypeidExpression e) {
 		import d.semantic.type;
-		auto tv = TypeVisitor(pass);
-		return handleTypeid(e.location, tv.visit(e.argument));
+		return getTypeInfo(e.location, TypeVisitor(pass).visit(e.argument));
 	}
 	
 	Expression visit(IdentifierTypeidExpression e) {
-		return IdentifierVisitor!(delegate Expression(identified) {
+		return SymbolResolver!(delegate Expression(identified) {
 			alias T = typeof(identified);
-			
-			static if(is(T : QualType) || is(T : Expression)) {
+			static if(is(T : QualType)) {
+				return getTypeInfo(e.location, identified);
+			} else static if(is(T : Expression)) {
 				return handleTypeid(e.location, identified);
 			} else {
 				return pass.raiseCondition!Expression(e.location, "Can't get typeid of " ~ e.argument.name.toString(pass.context) ~ ".");
@@ -820,11 +824,12 @@ struct ExpressionVisitor {
 	}
 	
 	Expression visit(IdentifierExpression e) {
-		return IdentifierVisitor!(delegate Expression(identified) {
-			static if(is(typeof(identified) : Expression)) {
+		return SymbolResolver!(delegate Expression(identified) {
+			alias T = typeof(identified);
+			static if(is(T : Expression)) {
 				return identified;
 			} else {
-				static if(is(typeof(identified) : Symbol)) {
+				static if(is(T : Symbol)) {
 					if(auto s = cast(OverloadSet) identified) {
 						return buildPolysemous(e.location, s);
 					}
@@ -836,23 +841,29 @@ struct ExpressionVisitor {
 	}
 	
 	private Expression buildPolysemous(Location location, OverloadSet s) {
-		auto iv = IdentifierVisitor!(delegate Expression(identified) {
-			static if(is(typeof(identified) : Expression)) {
+		auto spp = SymbolPostProcessor!(delegate Expression(identified) {
+			alias T = typeof(identified);
+			static if(is(T : Expression)) {
 				return identified;
-			} else static if(is(typeof(identified) : QualType)) {
+			} else static if(is(T : QualType)) {
 				assert(0, "Type can't be overloaded");
 			} else {
 				// TODO: handle templates.
 				throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
 			}
-		})(pass);
+		})(pass, location);
 		
-		auto exprs = s.set.map!(s => iv.visit(location, s)).array();
+		auto exprs = s.set.map!(s => spp.visit(s)).array();
 		return new PolysemousExpression(location, exprs);
 	}
 	
+	// XXX: get rid of that import ?
 	import d.ast.statement;
-	private auto handleDgs(Location location, Name name, ParamDecl[] params, bool isVariadic, AstBlockStatement fbody) {
+	private auto handleDgs(Location location, string prefix, ParamDecl[] params, bool isVariadic, AstBlockStatement fbody) {
+		// FIXME: can still collide with mixins, but that should rare enough for now.
+		import std.conv;
+		auto name = context.getName(prefix ~ to!string(location.line) ~ "_" ~ to!string(location.index));
+		
 		auto d = new FunctionDeclaration(
 			location,
 			Linkage.D,
@@ -875,24 +886,17 @@ struct ExpressionVisitor {
 	}
 	
 	Expression visit(DelegateLiteral e) {
-		return handleDgs(
-			e.location,
-			// FIXME: generate name properly
-			context.getName("__dg"),
-			e.params,
-			e.isVariadic,
-			e.fbody,
-		);
+		return handleDgs(e.location, "__dg", e.params, e.isVariadic, e.fbody);
 	}
 	
 	Expression visit(Lambda e) {
+		auto v = e.value;
 		return handleDgs(
 			e.location,
-			// FIXME: generate name properly
-			context.getName("__lambda"),
+			"__lambda",
 			e.params,
 			false,
-			new AstBlockStatement(e.value.location, [new AstReturnStatement(e.value.location, e.value)]),
+			new AstBlockStatement(v.location, [new AstReturnStatement(v.location, v)]),
 		);
 	}
 }

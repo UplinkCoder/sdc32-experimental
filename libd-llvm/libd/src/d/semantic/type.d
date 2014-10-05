@@ -1,6 +1,5 @@
 module d.semantic.type;
 
-import d.semantic.identifier;
 import d.semantic.semantic;
 
 import d.ast.base;
@@ -69,7 +68,7 @@ struct TypeVisitor {
 		auto ev = ExpressionVisitor(pass);
 		
 		import d.ir.expression;
-		auto size = (cast(IntegerLiteral!false) evaluate(buildImplicitCast(pass, t.size.location, getBuiltin(pointerTypeKind), ev.visit(t.size)))).value;
+		auto size = (cast(IntegerLiteral!false) evaluate(buildImplicitCast(pass, t.size.location, pass.object.getSizeT().type, ev.visit(t.size)))).value;
 		
 		return QualType(new ArrayType(elementType, size));
 	}
@@ -90,7 +89,8 @@ struct TypeVisitor {
 	}
 	
 	QualType visit(TypeQualifier q, IdentifierType t) {
-		return IdentifierVisitor!(delegate QualType(identified) {
+		import d.semantic.identifier;
+		return SymbolResolver!(delegate QualType(identified) {
 			static if(is(typeof(identified) : QualType)) {
 				return QualType(identified.type, q.add(identified.qualifier));
 			} else {

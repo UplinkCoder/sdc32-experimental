@@ -1,9 +1,10 @@
 module util.utf8;
 
-import std.utf;
-import std.algorithm:startsWith;
-import std.system;
-import std.range:iota;
+import std.utf; // toUTF8
+import std.string; // startsWith
+import std.range; // iota
+import std.system; // Endian
+
 /// Given data, it looks at the BOM to detect which encoding, and converts
 /// the text from that encoding into UTF-8.
 string convertToUTF8(const(ubyte)[] data) {
@@ -39,6 +40,6 @@ string convertToUTF8Impl(CType, Endian end)(const(ubyte)[] data) {
 		}
 		res ~= *(cast(CType*)buf.ptr);
 	}
-	
 	return toUTF8(res);
 }
+

@@ -110,7 +110,7 @@ struct ExpressionGen {
 	
 	private LLVMValueRef handleComparaison(BinaryExpression e, LLVMIntPredicate predicate) {
 		static LLVMIntPredicate workaround;
-		
+
 		auto oldWorkaround = workaround;
 		scope(exit) workaround = oldWorkaround;
 		
@@ -427,31 +427,25 @@ struct ExpressionGen {
 		auto args = e.args.map!(a => visit(a)).array();
 		
 		auto type = pass.visit(e.type);
-		//LLVMValueRef size = LLVMSizeOf(type);
-		LLVMValueRef size = LLVMConstInt(LLVMIntTypeInContext(llvmCtx,pass.bitWidth), 4, false);
-    
+		LLVMValueRef size =  LLVMConstTrunc(LLVMSizeOf(type),getPtrTypeInContext(llvmCtx));
+
 		auto alloc = buildCall(druntimeGen.getAllocMemory(), [size]);
 		auto ptr = LLVMBuildPointerCast(builder, alloc, type, "");
 		LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
 		
-		auto dt = peelAlias(e.type).type;
-		if(auto pt = cast(PointerType) dt) {
-			auto st = cast(StructType) peelAlias(pt.pointed).type;
-			auto init = LLVMBuildLoad(builder, getNewInit(st.dstruct), "");
-			args = init ~ args;
-			
-			auto obj = buildCall(ctor, args);
+		auto thisArg = visit(e.dinit);
+		auto thisType = LLVMTypeOf(LLVMGetFirstParam(ctor));
+		bool isClass = LLVMGetTypeKind(thisType) == LLVMTypeKind.Pointer;
+		if (isClass) {
+			auto thisPtr = LLVMBuildBitCast(builder, ptr, LLVMPointerType(LLVMTypeOf(thisArg), 0), "");
+			LLVMBuildStore(builder, thisArg, thisPtr);
+			thisArg = LLVMBuildBitCast(builder, ptr, thisType, "");
+		}
+		
+		args = thisArg ~ args;
+		auto obj = buildCall(ctor, args);
+		if (!isClass) {
 			LLVMBuildStore(builder, obj, ptr);
-		} else if(auto ct = cast(ClassType) dt) {
-			auto init = LLVMBuildLoad(builder, getNewInit(ct.dclass), "");
-			LLVMBuildStore(builder, init, ptr);
-			
-			auto castedPtr = LLVMBuildBitCast(builder, ptr, LLVMTypeOf(LLVMGetFirstParam(ctor)), "");
-			
-			args = castedPtr ~ args;
-			buildCall(ctor, args);
-		} else {
-			assert(0, "not implemented");
 		}
 		
 		return ptr;
@@ -500,16 +494,16 @@ struct ExpressionGen {
 		} else if(typeid(type) is typeid(PointerType)) {
 			ptr = visit(e.sliced);
 		} else if(auto asArray = cast(ArrayType) type) {
-			length = LLVMConstInt(LLVMIntTypeInContext(llvmCtx,pass.bitWidth), asArray.size, false);
+			length = LLVMConstInt(getPtrTypeInContext(llvmCtx), asArray.size, false);
 			
-			auto zero = LLVMConstInt(LLVMIntTypeInContext(llvmCtx,pass.bitWidth), 0, false);
+			auto zero = LLVMConstInt(getPtrTypeInContext(llvmCtx), 0, false);
 			ptr = LLVMBuildInBoundsGEP(builder, addressOf(e.sliced), &zero, 1, "");
 		} else {
 			assert(0, "Don't know how to slice " ~ e.type.toString(context));
 		}
 		
-		auto first = LLVMBuildZExt(builder, visit(e.first[0]), LLVMIntTypeInContext(llvmCtx,pass.bitWidth), "");
-		auto second = LLVMBuildZExt(builder, visit(e.second[0]), LLVMIntTypeInContext(llvmCtx,pass.bitWidth), "");
+		auto first = LLVMBuildZExt(builder, visit(e.first[0]), getPtrTypeInContext(llvmCtx), "");
+		auto second = LLVMBuildZExt(builder, visit(e.second[0]), getPtrTypeInContext(llvmCtx), "");
 		
 		auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULE, first, second, "");
 		if(length) {
@@ -692,19 +686,20 @@ struct ExpressionGen {
 		return buildCall(callee, args);
 	}
 	
-	private auto handleTuple(bool isCT)(TupleExpressionImpl!isCT e) {
-		auto fields = e.values.map!(v => visit(v)).array();
-		
-		// Hack around the difference between struct and named struct in LLVM.
-		return LLVMConstNamedStruct(pass.visit(e.type), fields.ptr, cast(uint) fields.length);
-	}
-	
 	LLVMValueRef visit(TupleExpression e) {
-		return handleTuple(e);
+		auto tuple = LLVMGetUndef(pass.visit(e.type));
+		
+		uint i = 0;
+		foreach(v; e.values.map!(v => visit(v))) {
+			tuple = LLVMBuildInsertValue(builder, tuple, v, i++, "");
+		}
+		
+		return tuple;
 	}
 	
 	LLVMValueRef visit(CompileTimeTupleExpression e) {
-		return handleTuple(e);
+		auto fields = e.values.map!(v => visit(v)).array();
+		return LLVMConstNamedStruct(pass.visit(e.type), fields.ptr, cast(uint) fields.length);
 	}
 	
 	LLVMValueRef visit(VoidInitializer v) {
@@ -769,6 +764,10 @@ struct ExpressionGen {
 	LLVMValueRef visit(StaticTypeidExpression e) {
 		return getTypeid(e.argument);
 	}
+	
+	LLVMValueRef visit(VtblExpression e) {
+		return pass.getVtbl(e.dclass);
+	}
 }
 
 struct AddressOfGen {
@@ -828,7 +827,10 @@ struct AddressOfGen {
 	}
 	
 	LLVMValueRef visit(ContextExpression e) {
-		return LLVMBuildPointerCast(builder, contexts[$ - 1].context, LLVMPointerType(contexts[$ - 1].type, 0), "");
+		auto type = cast(ContextType) e.type.type;
+		assert(type, "ContextExpression must be of ContextType");
+		
+		return pass.getContext(type.fun);
 	}
 	
 	LLVMValueRef visit(UnaryExpression e) {
@@ -877,7 +879,7 @@ struct AddressOfGen {
 			
 			auto length = LLVMBuildExtractValue(builder, slice, 0, ".length");
 			
-			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, i, LLVMIntTypeInContext(llvmCtx,pass.bitWidth), ""), length, "");
+			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, i, getPtrTypeInContext(llvmCtx), ""), length, "");
 			eg.genBoundCheck(location, condition);
 			
 			auto ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
@@ -893,15 +895,15 @@ struct AddressOfGen {
 			auto condition = LLVMBuildICmp(
 				builder,
 				LLVMIntPredicate.ULT,
-				LLVMBuildZExt(builder, i, LLVMIntTypeInContext(llvmCtx,pass.bitWidth), ""),
-				LLVMConstInt(LLVMIntTypeInContext(llvmCtx,pass.bitWidth), asArray.size, false),
+				LLVMBuildZExt(builder, i, getPtrTypeInContext(llvmCtx), ""),
+				LLVMConstInt(getPtrTypeInContext(llvmCtx), asArray.size, false),
 				"",
 			);
 			
 			eg.genBoundCheck(location, condition);
 			
 			LLVMValueRef indices[2];
-			indices[0] = LLVMConstInt(LLVMIntTypeInContext(llvmCtx,pass.bitWidth), 0, false);
+			indices[0] = LLVMConstInt(getPtrTypeInContext(llvmCtx), 0, false);
 			indices[1] = i;
 			
 			return LLVMBuildInBoundsGEP(builder, ptr, indices.ptr, indices.length, "");

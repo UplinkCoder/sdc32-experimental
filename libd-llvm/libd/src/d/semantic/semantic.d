@@ -28,7 +28,6 @@ import d.context;
 import d.exception;
 import d.lexer;
 import d.location;
-import d.source;
 import d.object;
 
 import std.algorithm;
@@ -48,15 +47,17 @@ alias ReturnStatement = d.ir.statement.ReturnStatement;
 
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
-	TypeKind pointerTypeKind;
+	
 	Context context;
 	
 	Evaluator evaluator;
 	
 	ObjectReference object;
-	
-	Name[] versions = [BuiltinName!"SDC"];
-	
+	version (D_LP64) {
+		Name[] versions = [BuiltinName!"SDC", BuiltinName!"D_LP64"];
+	} else {
+		Name[] versions = [BuiltinName!"SDC"];
+	}
 	static struct State {
 		Scope currentScope;
 		
@@ -83,13 +84,10 @@ final class SemanticPass {
 	
 	alias Step = d.ir.symbol.Step;
 	
-	this(Context context, Evaluator evaluator, Source delegate(Name[]) sourceFactory,uint bitWidth) {
+	this(Context context, Evaluator evaluator, Source delegate(Name[]) sourceFactory) {
 		this.context	= context;
 		this.evaluator	= evaluator;
-		this.pointerTypeKind = getPointerTypeKind(bitWidth);
-    
-		if (pointerTypeKind == TypeKind.Ulong) versions ~=  BuiltinName!"D_LP64";
-    
+		
 		moduleVisitor		= new ModuleVisitor(this, sourceFactory);
 		scheduler			= new Scheduler(this);
 		
@@ -99,7 +97,7 @@ final class SemanticPass {
 		scheduler.require(obj, Step.Populated);
 	}
 	
-	AstModule parse(Source source, Name[] packages) {
+	AstModule parse(S)(S source, Name[] packages) if(is(S : Source)) {
 		auto trange = lex!((line, index, length) => Location(source, line, index, length))(source.content, context);
 		return trange.parse(packages[$ - 1], packages[0 .. $-1]);
 	}
@@ -131,7 +129,7 @@ final class SemanticPass {
 		if(buildErrorNode) {
 			static if(is(T == Type)) {
 				return QualType(new ErrorType(location, message));
-			} else static if(is(T == Expression)) {
+			} else static if(is(T == Expression) || is(T == CompileTimeExpression)) {
 				return new ErrorExpression(location, message);
 			} else static if(is(T == Symbol)) {
 				return new ErrorSymbol(location, message);
@@ -155,7 +153,7 @@ final class SemanticPass {
 		}).filter!(s => !!s).array();
 		
 		assert(candidates.length < 2, "Several main functions");
-		assert(candidates.length == 1, "No main functoion");
+		assert(candidates.length == 1, "No main function");
 		
 		auto main = candidates[0];
 		auto location = main.fbody.location;

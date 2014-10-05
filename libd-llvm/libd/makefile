@@ -1,5 +1,5 @@
 DMD ?= dmd
-ARCHFLAG ?= 
+ARCHFLAG ?= -m64
 DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest
 
 LIBD_ROOT = .

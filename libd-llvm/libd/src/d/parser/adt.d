@@ -30,9 +30,7 @@ auto parseInterface(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
 
 private Declaration parsePolymorphic(bool isClass = true, TokenRange)(ref TokenRange trange) {
 	Location location = trange.front.location;
-/*	if (trange.front.type==TokenType.Final) {
-		//trange.match(TokenType.Final);
-	} */
+	
 	static if(isClass) {
 		trange.match(TokenType.Class);
 		alias DeclarationType = ClassDeclaration;

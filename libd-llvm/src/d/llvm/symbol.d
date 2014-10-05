@@ -2,6 +2,7 @@ module d.llvm.symbol;
 
 import d.llvm.codegen;
 
+import d.ir.dscope;
 import d.ir.symbol;
 import d.ir.type;
 
@@ -12,6 +13,7 @@ import llvm.c.core;
 
 import std.algorithm;
 import std.array;
+import std.range;
 import std.string;
 
 final class SymbolGen {
@@ -20,6 +22,16 @@ final class SymbolGen {
 	
 	private LLVMValueRef[ValueSymbol] globals;
 	private LLVMValueRef[ValueSymbol] locals;
+	
+	struct Closure {
+		uint[Variable] indices;
+		LLVMValueRef context;
+		LLVMTypeRef type;
+	}
+	
+	Closure[] contexts;
+	
+	private Closure[][TypeSymbol] embededContexts;
 	
 	this(CodeGenPass pass) {
 		this.pass = pass;
@@ -64,14 +76,20 @@ final class SymbolGen {
 	}
 	
 	LLVMValueRef visit(Function f) {
+		auto name = f.mangle.toStringz();
+		auto fun = LLVMGetNamedFunction(dmodule, name);
+		assert(!fun, f.mangle ~ " is already defined.");
+		
 		auto type = pass.visit(f.type);
 		
-		auto funType = LLVMGetElementType(type);
-		auto fun = LLVMAddFunction(dmodule, f.mangle.toStringz(), funType);
+		// Type generation can have generated the signeture (it is required to generate virtual table).
+		fun = LLVMGetNamedFunction(dmodule, name);
+		if (!fun) {
+			fun = LLVMAddFunction(dmodule, name, LLVMGetElementType(type));
+		}
 		
 		// Register the function.
 		register(f, fun);
-		
 		if(f.fbody) {
 			genFunctionBody(f, fun);
 		}
@@ -79,12 +97,9 @@ final class SymbolGen {
 		return fun;
 	}
 	
-	private void genFunctionBody(Function f) {
-		auto fun = genCached(f);
-		genFunctionBody(f, fun);
-	}
-	
 	private void genFunctionBody(Function f, LLVMValueRef fun) {
+		assert(LLVMCountBasicBlocks(fun) == 0, f.mangle ~ " body is already defined.");
+		
 		// Function can be defined in several modules, so the optimizer can do its work.
 		LLVMSetLinkage(fun, LLVMLinkage.WeakODR);
 		
@@ -137,6 +152,7 @@ final class SymbolGen {
 		
 		thisPtr = null;
 		if(f.hasThis) {
+			// TODO: if this have a context, expand variables !
 			auto thisType = f.type.paramTypes[0];
 			auto value = params[0];
 			
@@ -151,6 +167,8 @@ final class SymbolGen {
 				thisPtr = alloca;
 			}
 			
+			buildEmbededCaptures(thisPtr, thisType.type);
+			
 			params = params[1 .. $];
 			paramTypes = paramTypes[1 .. $];
 		}
@@ -162,34 +180,13 @@ final class SymbolGen {
 			assert(ctxType.isRef || ctxType.isFinal);
 			LLVMSetValueName(parentCtx, "__ctx");
 			
-			import d.ir.dscope;
+			auto ctxTypeGen = pass.visit(ctxType.type);
+			contexts = contexts[0 .. $ - retro(contexts).countUntil!(c => c.type is ctxTypeGen)()];
+			
 			auto s = cast(ClosureScope) f.dscope;
 			assert(s, "Function has context but do not have a closure scope");
 			
-			auto closureCount = s.capture.length;
-			
-			// Try to find out if we have the variable in a closure.
-			auto value = parentCtx;
-			ClosureLoop: foreach_reverse(closure; contexts) {
-				value = LLVMBuildPointerCast(builder, value, LLVMTypeOf(closure.context), "");
-				
-				// Create enclosed variables.
-				foreach(v; s.capture.byKey()) {
-					if (auto indexPtr = v in closure.indices) {
-						// Register the variable.
-						locals[v] = LLVMBuildStructGEP(builder, value, *indexPtr, v.mangle.toStringz());
-						
-						closureCount--;
-						if (!closureCount) {
-							break ClosureLoop;
-						}
-					}
-				}
-				
-				value = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, value, 0, ""), "");
-			}
-			
-			assert(closureCount == 0);
+			buildCapturedVariables(parentCtx, contexts, s.capture);
 			
 			params = params[1 .. $];
 			paramTypes = paramTypes[1 .. $];
@@ -276,11 +273,87 @@ final class SymbolGen {
 			import d.llvm.expression;
 			auto eg = ExpressionGen(pass);
 			
-			auto alloc = eg.buildCall(druntimeGen.getAllocMemory(), [LLVMConstInt(LLVMIntTypeInContext(llvmCtx,pass.bitWidth), 4, false)]);
+			LLVMValueRef size = LLVMConstTrunc(LLVMSizeOf(ctxType),getPtrTypeInContext(llvmCtx));
+			auto alloc = eg.buildCall(druntimeGen.getAllocMemory(), [size]);
 			LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
 			
 			LLVMReplaceAllUsesWith(context, LLVMBuildPointerCast(builder, alloc, LLVMPointerType(ctxType, 0), ""));
 		}
+	}
+	
+	private void buildEmbededCaptures(LLVMValueRef thisPtr, Type t) {
+		if (auto st = cast(StructType) t) {
+			auto s = st.dstruct;
+			if (!s.hasContext) {
+				return;
+			}
+			
+			auto vs = cast(VoldemortScope) s.dscope;
+			assert(vs, "Struct has context but no VoldemortScope");
+			
+			buildEmbededCaptures(thisPtr, 0, embededContexts[s], vs);
+		} else if (auto ct = cast(ClassType) t) {
+			auto c = ct.dclass;
+			if (!c.hasContext) {
+				return;
+			}
+			
+			auto vs = cast(VoldemortScope) c.dscope;
+			assert(vs, "Class has context but no VoldemortScope");
+			
+			import d.context;
+			auto f = retro(c.members).filter!(m => m.name == BuiltinName!"__ctx").map!(m => cast(Field) m).front;
+			
+			buildEmbededCaptures(thisPtr, f.index, embededContexts[c], vs);
+		} else {
+			assert(0, typeid(t).toString() ~ " is not supported.");
+		}
+	}
+	
+	private void buildEmbededCaptures(LLVMValueRef thisPtr, uint i, Closure[] contexts, VoldemortScope s) {
+		buildCapturedVariables(LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, thisPtr, i, ""), ""), contexts, s.capture);
+	}
+	
+	private void buildCapturedVariables(LLVMValueRef root, Closure[] contexts, bool[Variable] capture) {
+		auto closureCount = capture.length;
+		
+		// Try to find out if we have the variable in a closure.
+		ClosureLoop: foreach_reverse(closure; contexts) {
+			root = LLVMBuildPointerCast(builder, root, LLVMTypeOf(closure.context), "");
+			
+			// Create enclosed variables.
+			foreach(v; capture.byKey()) {
+				if (auto indexPtr = v in closure.indices) {
+					// Register the variable.
+					locals[v] = LLVMBuildStructGEP(builder, root, *indexPtr, v.mangle.toStringz());
+					
+					closureCount--;
+					if (!closureCount) {
+						break ClosureLoop;
+					}
+				}
+			}
+			
+			root = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, root, 0, ""), "");
+		}
+		
+		assert(closureCount == 0);
+	}
+	
+	LLVMValueRef getContext(Function f) {
+		auto type = pass.buildContextType(f);
+		auto value = contexts[$ - 1].context;
+		foreach_reverse(i, c; contexts) {
+			value = LLVMBuildPointerCast(builder, value, LLVMTypeOf(c.context), "");
+			
+			if (c.type is type) {
+				return LLVMBuildPointerCast(builder, value, LLVMPointerType(type, 0), "");
+			}
+			
+			value = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, value, 0, ""), "");
+		}
+		
+		assert(0, "No context available.");
 	}
 	
 	LLVMValueRef visit(Variable v) {
@@ -369,6 +442,10 @@ final class SymbolGen {
 	}
 	
 	LLVMTypeRef visit(TypeSymbol s) {
+		if (s.hasContext) {
+			embededContexts[s] = contexts;
+		}
+		
 		return this.dispatch(s);
 	}
 	
@@ -377,7 +454,7 @@ final class SymbolGen {
 	}
 	
 	LLVMTypeRef visit(Struct s) {
-		auto ret = pass.visit(new StructType(s));
+		auto ret = pass.buildStructType(s);
 		
 		foreach(member; s.members) {
 			if(typeid(member) !is typeid(Field)) {
@@ -393,7 +470,10 @@ final class SymbolGen {
 		
 		foreach(member; c.members) {
 			if (auto m = cast(Method) member) {
-				genFunctionBody(m);
+				auto fun = genCached(m);
+				if (LLVMCountBasicBlocks(fun) == 0) {
+					genFunctionBody(m, fun);
+				}
 			}
 		}
 		

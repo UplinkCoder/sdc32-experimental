@@ -68,12 +68,12 @@ class ValueAliasDeclaration : NamedDeclaration {
  * Alias this
  */
 class AliasThisDeclaration : Declaration {
-	Identifier identifier;
+	Name name;
 	
-	this(Location location, Identifier identifier) {
+	this(Location location, Name name) {
 		super(location);
 		
-		this.identifier = identifier;
+		this.name = name;
 	}
 }
 
@@ -204,20 +204,6 @@ class VariableDeclaration : NamedDeclaration {
 		
 		this.type = type;
 		this.value = value;
-	}
-}
-/**
- * A package delcaration
- */
-class Package : NamedDeclaration {
-	Package parent;
-	
-	this(Location location, Name name, Name[] packages) {
-		super(location, name);
-		
-		if(packages.length > 0) {
-			parent = new Package(location, packages[$ - 1], packages[0 .. $-1]);
-		}
 	}
 }
 

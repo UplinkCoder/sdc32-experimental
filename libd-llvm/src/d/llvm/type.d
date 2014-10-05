@@ -20,19 +20,15 @@ final class TypeGen {
 	alias pass this;
 		
 	private LLVMTypeRef[TypeSymbol] typeSymbols;
-	private LLVMValueRef[TypeSymbol] newInits;
 	private LLVMValueRef[TypeSymbol] typeInfos;
 	
+	private LLVMValueRef[Class] vtbls;
 	private LLVMTypeRef[Function] funCtxTypes;
 	
 	private Class classInfoClass;
 	
 	this(CodeGenPass pass) {
 		this.pass = pass;
-	}
-	
-	LLVMValueRef getNewInit(TypeSymbol s) {
-		return newInits[s];
 	}
 	
 	LLVMValueRef getTypeInfo(TypeSymbol s) {
@@ -54,8 +50,10 @@ final class TypeGen {
 	}
 	
 	LLVMTypeRef visit(StructType t) {
-		auto s = t.dstruct;
-		
+		return buildStruct(t.dstruct);
+	}
+	
+	LLVMTypeRef buildStruct(Struct s) {
 		if (auto st = s in typeSymbols) {
 			return *st;
 		}
@@ -70,13 +68,6 @@ final class TypeGen {
 		}
 		
 		LLVMStructSetBody(llvmStruct, types.ptr, cast(uint) types.length, false);
-		
-		import d.context;
-		auto init = cast(Variable) s.dscope.resolve(BuiltinName!"init");
-		assert(init);
-		
-		newInits[s] = pass.visit(init);
-		
 		return llvmStruct;
 	}
 	
@@ -101,7 +92,8 @@ final class TypeGen {
 		auto llvmStruct = LLVMStructCreateNamed(llvmCtx, cast(char*) c.mangle.toStringz());
 		auto structPtr = typeSymbols[c] = LLVMPointerType(llvmStruct, 0);
 		
-		auto classInfo = LLVMAddGlobal(dmodule, LLVMGetElementType(buildClass(classInfoClass)), cast(char*) (c.mangle ~ "__ClassInfo").toStringz());
+		auto classInfoStruct = LLVMGetElementType(buildClass(classInfoClass));
+		auto classInfo = LLVMAddGlobal(dmodule, classInfoStruct, cast(char*) (c.mangle ~ "__ClassInfo").toStringz());
 		LLVMSetGlobalConstant(classInfo, true);
 		LLVMSetLinkage(classInfo, LLVMLinkage.LinkOnceODR);
 		
@@ -115,13 +107,11 @@ final class TypeGen {
 				scope(exit) m.fbody = oldBody;
 				
 				m.fbody = null;
-				
 				vtbl ~= pass.visit(m);
 			} else if(auto f = cast(Field) member) {
 				if(f.index > 0) {
 					import d.llvm.expression;
-					auto eg = ExpressionGen(pass);
-					fields ~= eg.visit(f.value);
+					fields ~= ExpressionGen(pass).visit(f.value);
 				}
 			}
 		}
@@ -136,32 +126,27 @@ final class TypeGen {
 		LLVMSetLinkage(vtblPtr, LLVMLinkage.LinkOnceODR);
 		
 		// Set vtbl.
-		fields[0] = vtblPtr;
+		vtbls[c] = fields[0] = vtblPtr;
 		auto initTypes = fields.map!(f => LLVMTypeOf(f)).array();
 		LLVMStructSetBody(llvmStruct, initTypes.ptr, cast(uint) initTypes.length, false);
 		
-		auto initPtr = LLVMAddGlobal(dmodule, llvmStruct, (c.mangle ~ "__initZ").toStringz());
-		LLVMSetInitializer(initPtr, LLVMConstNamedStruct(llvmStruct, fields.ptr, cast(uint) fields.length));
-		LLVMSetGlobalConstant(initPtr, true);
-		LLVMSetLinkage(initPtr, LLVMLinkage.LinkOnceODR);
-		
-		newInits[c] = initPtr;
-		
 		// Doing it at the end to avoid infinite recursion when generating object.ClassInfo
-		// Also, we may want to do that in symbol and generate with the class.
 		auto base = c.base;
 		buildClass(base);
-		auto classInfoData = LLVMGetInitializer(getNewInit(classInfoClass));
-		uint insertIndex = 1;
-		classInfoData = LLVMConstInsertValue(classInfoData, getTypeInfo(base), &insertIndex, 1);
-		LLVMSetInitializer(classInfo, classInfoData);
+		
+		LLVMValueRef[2] classInfoData = [getVtbl(classInfoClass), getTypeInfo(base)];
+		LLVMSetInitializer(classInfo, LLVMConstNamedStruct(classInfoStruct, classInfoData.ptr, 2));
 		
 		return structPtr;
 	}
 	
+	
+	LLVMValueRef getVtbl(Class c) {
+		return vtbls[c];
+	}
+	
 	LLVMTypeRef visit(EnumType t) {
 		auto e = t.denum;
-		
 		if (auto et = e in typeSymbols) {
 			return *et;
 		}
@@ -172,7 +157,7 @@ final class TypeGen {
 	LLVMTypeRef visit(BuiltinType t) {
 		final switch(t.kind) with(TypeKind) {
 			case None :
-				assert(0, "Not Implemented");
+				assert(0, "Trying it build None Type");
 			
 			case Void :
 				return LLVMVoidTypeInContext(llvmCtx);
@@ -219,7 +204,6 @@ final class TypeGen {
 	
 	LLVMTypeRef visit(PointerType t) {
 		auto pointed = visit(t.pointed);
-		
 		if(LLVMGetTypeKind(pointed) == LLVMTypeKind.Void) {
 			pointed = LLVMInt8TypeInContext(llvmCtx);
 		}
@@ -229,7 +213,7 @@ final class TypeGen {
 	
 	LLVMTypeRef visit(SliceType t) {
 		LLVMTypeRef[2] types;
-		types[0] = LLVMIntTypeInContext(llvmCtx,pass.bitWidth);
+		types[0] = getPtrTypeInContext(llvmCtx);
 		types[1] = LLVMPointerType(visit(t.sliced), 0);
 		
 		return LLVMStructTypeInContext(llvmCtx, types.ptr, 2, false);
@@ -237,13 +221,11 @@ final class TypeGen {
 	
 	LLVMTypeRef visit(ArrayType t) {
 		auto type = visit(t.elementType);
-		
 		return LLVMArrayType(type, cast(uint) t.size);
 	}
 	
 	private auto buildParamType(ParamType pt) {
 		auto type = visit(pt.type);
-		
 		if(pt.isRef) {
 			type = LLVMPointerType(type, 0);
 		}
@@ -253,7 +235,6 @@ final class TypeGen {
 	
 	LLVMTypeRef visit(FunctionType t) {
 		auto params = t.paramTypes.map!(p => buildParamType(p)).array();
-		
 		return LLVMPointerType(LLVMFunctionType(buildParamType(t.returnType), params.ptr, cast(uint) params.length, t.isVariadic), 0);
 	}
 	
@@ -283,6 +264,11 @@ final class TypeGen {
 	
 	LLVMTypeRef visit(ContextType t) {
 		return buildContextType(t.fun);
+	}
+	
+	LLVMTypeRef visit(TupleType t) {
+		auto types = t.types.map!(t => visit(t)).array();
+		return LLVMStructTypeInContext(llvmCtx, types.ptr, cast(uint) types.length, false);
 	}
 }
 

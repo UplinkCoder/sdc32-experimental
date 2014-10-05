@@ -17,22 +17,6 @@ alias AssociativeArrayType = d.ast.qualtype.AssociativeArrayType!Type;
 alias FunctionType = d.ast.qualtype.FunctionType!Type;
 alias DelegateType = d.ast.qualtype.DelegateType!Type;
 
-TypeKind getPointerTypeKind(bool isSigned=false) (uint bitWidth) {
- static if (!isSigned) {
-	if (bitWidth == 8) return TypeKind.Ubyte;
-		else if (bitWidth == 16) return TypeKind.Ushort;
-		else if (bitWidth == 32) return TypeKind.Uint;
-		else if (bitWidth == 64) return TypeKind.Ulong;
-	} else {
-		if (bitWidth == 8) return TypeKind.Byte;
-		else if (bitWidth == 16) return TypeKind.Short;
-		else if (bitWidth == 32) return TypeKind.Int;
-		else if (bitWidth == 64) return TypeKind.Long;
-	}
-	 import std.conv:to;
-	 assert(0,"No pointer type for bitWidth "~bitWidth.to!string);
-}
-
 enum TypeKind {
 	None,
 	Void,
@@ -77,7 +61,8 @@ bool isIntegral(TypeKind t) {
 }
 
 bool isSigned(TypeKind t) in {
-	assert(isIntegral(t), "isSigned only apply to integral types");
+	import std.conv;
+	assert(isIntegral(t), "isSigned only apply to integral types "~(cast(uint)t).to!string);
 } body {
 	return signed(t) == t;
 }
@@ -240,7 +225,6 @@ class BuiltinType : Type {
 			
 			case Null :
 				return "typeof(null)";
-        
 		}
 	}
 }
@@ -248,7 +232,10 @@ class BuiltinType : Type {
 QualType getBuiltin(TypeKind k) {
 	return QualType(new BuiltinType(k));
 }
-
+import d.semantic.semantic;
+TypeKind getSizeTKind(SemanticPass pass) {
+	return (cast(BuiltinType) pass.object.getSizeT.type.type).kind;
+}
 /**
  * An Error occured but an Type is expected.
  * Useful for speculative compilation.
@@ -365,6 +352,17 @@ class EnumType : Type {
 	
 	override string toString(Context ctx, TypeQualifier) const {
 		return denum.toString(ctx);
+	}
+}
+
+/**
+ * Tuples
+ */
+class TupleType : Type {
+	QualType[] types;
+	
+	this(QualType[] types) {
+		this.types = types;
 	}
 }
 

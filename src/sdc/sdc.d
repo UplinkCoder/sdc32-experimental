@@ -32,12 +32,13 @@ final class SDC {
 
 	this(string name, JSON conf, uint optLevel,uint bitWidth) {
 		includePaths = conf["includePath"].array.map!(path => cast(string) path).array();
+		bool _64bit = bitWidth == 64;
 
 		context = new Context();
 		this.bitWidth=bitWidth;
 
 		backend	= new LLVMBackend(context, name, optLevel, conf["libPath"].array.map!(path => " -L" ~ (cast(string) path)).join(),bitWidth);
-		semantic = new SemanticPass(context, backend.getEvaluator(), &getFileSource, bitWidth);
+		semantic = new SemanticPass(context, backend.getEvaluator(), &getFileSource, _64bit);
 
 		// Review thet way this whole thing is built.
 		backend.getPass().object = semantic.object;

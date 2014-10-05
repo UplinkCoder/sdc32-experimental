@@ -183,9 +183,9 @@ struct TemplateInstancier {
 				} else static if(is(typeof(identified) : Symbol)) {
 					auto a = new SymbolAlias(p.location, p.name, identified);
 					
-					pass.scheduler.require(identified, Step.Populated);
-					a.mangle = identified.mangle;
-					a.step = Step.Processed;
+					import d.semantic.symbol;
+					auto sa = SymbolAnalyzer(pass);
+					sa.process(a);
 					
 					argSyms ~= a;
 					return "S" ~ a.mangle;
@@ -205,6 +205,7 @@ struct TemplateInstancier {
 			
 			auto i = new TemplateInstance(location, t, argSyms);
 			i.mangle = t.mangle ~ "T" ~ id ~ "Z";
+			i.storage = t.storage;
 			
 			pass.scheduler.schedule(t, i);
 			return t.instances[id] = i;
@@ -464,18 +465,15 @@ struct SymbolMatcher {
 			matchedArgs[p.index] = TemplateArgument(vs);
 			
 			import d.semantic.identifier;
-			return IdentifierVisitor!(delegate bool(identified) {
-				alias type = typeof(identified);
-				
-				// IdentifierVisitor must know the return value of the closure.
-				// To do so, it instanciate it with null as parameter.
-				static if(is(type : Expression) && !is(type == typeof(null))) {
+			return SymbolPostProcessor!(delegate bool(identified) {
+				alias T = typeof(identified);
+				static if(is(T : Expression)) {
 					// TODO: If IFTI fails, go for cast.
 					return IftiTypeMatcher(matchedArgs, identified.type).visit(p.type);
 				} else {
 					return false;
 				}
-			})(pass).visit(p.location, vs);
+			})(pass, p.location).visit(vs);
 		}
 		
 		return false;
@@ -483,24 +481,26 @@ struct SymbolMatcher {
 	
 	bool visit(TypeTemplateParameter p) {
 		import d.semantic.identifier;
-		return IdentifierVisitor!(delegate bool(identified) {
-			static if(is(typeof(identified) : QualType)) {
+		return SymbolPostProcessor!(delegate bool(identified) {
+			alias T = typeof(identified);
+			static if(is(T : QualType)) {
 				return TypeMatcher(pass, matchedArgs, identified).visit(p);
 			} else {
 				return false;
 			}
-		})(pass).visit(p.location, matchee);
+		})(pass, p.location).visit(matchee);
 	}
 	
 	bool visit(ValueTemplateParameter p) {
 		import d.semantic.identifier;
-		return IdentifierVisitor!(delegate bool(identified) {
-			static if(is(typeof(identified) : Expression)) {
+		return SymbolPostProcessor!(delegate bool(identified) {
+			alias T = typeof(identified);
+			static if(is(T : Expression)) {
 				return ValueMatcher(pass, matchedArgs, pass.evaluate(identified)).visit(p);
 			} else {
 				return false;
 			}
-		})(pass).visit(p.location, matchee);
+		})(pass, p.location).visit(matchee);
 	}
 }
 

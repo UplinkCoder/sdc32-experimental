@@ -1,3 +1,4 @@
+
 module d.ast.statement;
 
 import d.ast.base;
@@ -132,14 +133,14 @@ class ForStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
 alias AstForStatement = ForStatement!(AstExpression, AstStatement);
 
 /**
- * for statements
+ * foreach statements
  */
-class ForeachStatement (E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+class ForeachStatement : AstStatement {
 	VariableDeclaration[] tupleElements;
-	E iterrated;
-	S statement;
+	AstExpression iterrated;
+	AstStatement statement;
 	
-	this(Location location, VariableDeclaration[] tupleElements, E iterrated, S statement) {
+	this(Location location, VariableDeclaration[] tupleElements, AstExpression iterrated, AstStatement statement) {
 		super(location);
 		
 		this.tupleElements = tupleElements;
@@ -147,8 +148,7 @@ class ForeachStatement (E, S) if(is(E : AstExpression) && is(S : AstStatement)) 
 		this.statement = statement;
 	}
 }
-alias AstForeachStatement = ForeachStatement!(AstExpression,AstStatement);
-	
+
 /**
  * return statements
  */
