@@ -8,10 +8,6 @@ template Foo(T : U[], U) {
 }
 
 int main() {
-	uint a = 0;
-	static if (size_t.sizeof==uint.sizeof) {
-		a = 8;
-	}
-	return Foo!(long[]) + Foo!string + Foo!(string[]) + a;
+	return Foo!(long[]) + Foo!string + Foo!(string[]);
 }
 

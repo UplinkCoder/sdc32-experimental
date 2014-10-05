@@ -16,17 +16,12 @@ auto bar(T)(T t) {
 }
 
 int main() {
-	auto b=0;
-	static if (size_t.sizeof==uint.sizeof) {
-                b=8;
-}
 	auto a = Qux!(float*);
-	assert(a == 12-b/2);
+	assert(a == 12);
 	
 	a += Qux!(int*, int);
-	assert(a == 20 - b/2);
-		
+	assert(a == 24);
 	
-	return foo(a) + bar(5) + b;
+	return foo(a) + bar(5);
 }
 
