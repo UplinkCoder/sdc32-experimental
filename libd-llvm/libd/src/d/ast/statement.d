@@ -1,4 +1,3 @@
-
 module d.ast.statement;
 
 import d.ast.base;

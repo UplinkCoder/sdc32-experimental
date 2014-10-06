@@ -610,8 +610,8 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 			return new NullLiteral(location);
 		
 		case IntegerLiteral :
-				return trange.parseIntegerLiteral();
-
+			return trange.parseIntegerLiteral();
+		
 		case StringLiteral :
 			auto name = trange.front.name;
 			trange.popFront();

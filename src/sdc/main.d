@@ -13,6 +13,7 @@ import sdc.terminal;
 
 import std.array;
 import std.getopt;
+import std.path;
 
 int main(string[] args) {
 	version(DigitalMars) {
@@ -26,29 +27,48 @@ int main(string[] args) {
 	auto conf = buildConf();
 	
 	string[] includePath;
+	string[] versions;
 	uint optLevel;
-	uint bitWidth;
 	bool dontLink;
+	uint bitWidth;
+	bool outputSrc;
+	bool outputBc; 
 	string outputFile;
 	getopt(
 		args, std.getopt.config.caseSensitive,
-		"m", &bitWidth,
 		"I", &includePath,
 		"O", &optLevel,
 		"c", &dontLink,
+		"m",&bitWidth,
+		"s",&outputSrc,
+		"version",&versions,
+		"output-bc",&outputBc,
 		"o", &outputFile,
-		"help|h",&printHelp
+		"help|h", delegate() {
+			import std.stdio;
+			writeln("HELP !");
+		}
 	);
-	if (bitWidth==0) bitWidth=64;
 	
 	foreach(path; includePath) {
 		conf["includePath"] ~= path;
 	}
-	
+
+	switch (bitWidth) {
+		case 0 : version (D_LP64) 
+			versions ~= "D_LP64";
+		 break;
+		case 32 : 
+			break;
+		case 64 : versions ~= "D_LP64";
+			break;
+		default :
+			assert(0,"Unspported arguemt to -m");
+	}
+
 	auto files = args[1 .. $];
 	
-	auto executable = "a.out";
-	//if (files[0]=="-") 
+	auto executable = files[0].idup.baseName(".d");
 	auto objFile = files[0][0 .. $-2] ~ ".o";
 	if(outputFile.length) {
 		if(dontLink) {
@@ -58,7 +78,7 @@ int main(string[] args) {
 		}
 	}
 	
-	auto sdc = new SDC(files[0], conf, optLevel,bitWidth);
+	auto sdc = new SDC(files[0], conf, optLevel,versions);
 	try {
 		foreach(file; files) {
 			sdc.compile(file);
@@ -84,10 +104,3 @@ int main(string[] args) {
 	}
 }
 
-void printHelp() {
-	import std.stdio;
-	writeln("usage: sdc [-IOco] inputfile");
-	writeln("-o outfile | sets the outputfile to outfile");
-	writeln("-I includepaths ... | ");
-	writeln("-c | don't link");
-}

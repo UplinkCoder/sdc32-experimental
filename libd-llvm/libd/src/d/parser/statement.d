@@ -117,12 +117,12 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 				QualAstType type;
 				switch(trange.front.type) {
 					case Ref :
-						lookahead.popFront();
+					/*lookahead.popFront();
 						
 						if(lookahead.front.type == Identifier) goto case Identifier;
 						
-						goto default;
-					
+						goto default;*/
+						assert(0,"foreach can't deal with ref (for now)");
 					case Identifier :
 						lookahead.popFront();
 						
@@ -156,9 +156,13 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			}
 			
 			trange.match(Semicolon);
-
 			auto iterrated = trange.parseExpression();
-		
+			
+			if(trange.front.type == DoubleDot) {
+				trange.popFront();
+				trange.parseExpression();
+			}
+			
 			trange.match(CloseParen);
 			
 			auto statement = trange.parseStatement();

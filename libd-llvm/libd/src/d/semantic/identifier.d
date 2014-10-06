@@ -623,24 +623,13 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 		} else if(name == BuiltinName!"sizeof") {
 			import d.semantic.sizeof;
 			return handler(new IntegerLiteral!false(location, SizeofVisitor(pass).visit(t), TypeKind.Uint));
-		} 
-
+		}
+	
 		throw new CompileException(location, name.toString(context) ~ " can't be resolved in type " ~ t.toString(context));
 	}
-
+	
 	Ret visit(QualType qt) {
 		return this.dispatch!(t => bailout(t))(qt.type);
-	}
-
-	Ret visit(ArrayType t) {
-		if(name == BuiltinName!"length") {
-	// FIXME: pass explicit location.
-			auto location = Location.init;
-			auto lt = cast(BuiltinType) pass.object.getSizeT().type.type;
-			auto s = new IntegerLiteral!false(location, t.size, lt.kind);
-			return handler(s);
-		}
-		return bailout(t);
 	}
 	
 	Ret visit(SliceType t) {

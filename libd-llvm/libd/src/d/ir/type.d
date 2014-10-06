@@ -61,8 +61,7 @@ bool isIntegral(TypeKind t) {
 }
 
 bool isSigned(TypeKind t) in {
-	import std.conv;
-	assert(isIntegral(t), "isSigned only apply to integral types "~(cast(uint)t).to!string);
+	assert(isIntegral(t), "isSigned only apply to integral types");
 } body {
 	return signed(t) == t;
 }
@@ -232,10 +231,7 @@ class BuiltinType : Type {
 QualType getBuiltin(TypeKind k) {
 	return QualType(new BuiltinType(k));
 }
-import d.semantic.semantic;
-TypeKind getSizeTKind(SemanticPass pass) {
-	return (cast(BuiltinType) pass.object.getSizeT.type.type).kind;
-}
+
 /**
  * An Error occured but an Type is expected.
  * Useful for speculative compilation.
