@@ -51,7 +51,7 @@ final class CodeGenPass {
 		Failure,
 		Catch,
 	}
-
+	
 	struct Block {
 		BlockKind kind;
 		Statement statement;

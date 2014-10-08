@@ -110,7 +110,7 @@ struct ExpressionGen {
 	
 	private LLVMValueRef handleComparaison(BinaryExpression e, LLVMIntPredicate predicate) {
 		static LLVMIntPredicate workaround;
-		
+
 		auto oldWorkaround = workaround;
 		scope(exit) workaround = oldWorkaround;
 		
@@ -472,8 +472,8 @@ struct ExpressionGen {
 		auto args = e.args.map!(a => visit(a)).array();
 		
 		auto type = pass.visit(e.type);
-		LLVMValueRef size = LLVMSizeOf(type);
-		
+		LLVMValueRef size =  LLVMConstTrunc(LLVMSizeOf(type),getPtrTypeInContext(llvmCtx));
+
 		auto alloc = buildCall(druntimeGen.getAllocMemory(), [size]);
 		auto ptr = LLVMBuildPointerCast(builder, alloc, type, "");
 		LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
@@ -539,16 +539,16 @@ struct ExpressionGen {
 		} else if(typeid(type) is typeid(PointerType)) {
 			ptr = visit(e.sliced);
 		} else if(auto asArray = cast(ArrayType) type) {
-			length = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), asArray.size, false);
+			length = LLVMConstInt(getPtrTypeInContext(llvmCtx), asArray.size, false);
 			
-			auto zero = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, false);
+			auto zero = LLVMConstInt(getPtrTypeInContext(llvmCtx), 0, false);
 			ptr = LLVMBuildInBoundsGEP(builder, addressOf(e.sliced), &zero, 1, "");
 		} else {
 			assert(0, "Don't know how to slice " ~ e.type.toString(context));
 		}
 		
-		auto first = LLVMBuildZExt(builder, visit(e.first[0]), LLVMInt64TypeInContext(llvmCtx), "");
-		auto second = LLVMBuildZExt(builder, visit(e.second[0]), LLVMInt64TypeInContext(llvmCtx), "");
+		auto first = LLVMBuildZExt(builder, visit(e.first[0]), getPtrTypeInContext(llvmCtx), "");
+		auto second = LLVMBuildZExt(builder, visit(e.second[0]), getPtrTypeInContext(llvmCtx), "");
 		
 		auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULE, first, second, "");
 		if(length) {
@@ -925,7 +925,7 @@ struct AddressOfGen {
 			
 			auto length = LLVMBuildExtractValue(builder, slice, 0, ".length");
 			
-			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, i, LLVMInt64TypeInContext(llvmCtx), ""), length, "");
+			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, i, getPtrTypeInContext(llvmCtx), ""), length, "");
 			eg.genBoundCheck(location, condition);
 			
 			auto ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
@@ -941,15 +941,15 @@ struct AddressOfGen {
 			auto condition = LLVMBuildICmp(
 				builder,
 				LLVMIntPredicate.ULT,
-				LLVMBuildZExt(builder, i, LLVMInt64TypeInContext(llvmCtx), ""),
-				LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), asArray.size, false),
+				LLVMBuildZExt(builder, i, getPtrTypeInContext(llvmCtx), ""),
+				LLVMConstInt(getPtrTypeInContext(llvmCtx), asArray.size, false),
 				"",
 			);
 			
 			eg.genBoundCheck(location, condition);
 			
 			LLVMValueRef indices[2];
-			indices[0] = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, false);
+			indices[0] = LLVMConstInt(getPtrTypeInContext(llvmCtx), 0, false);
 			indices[1] = i;
 			
 			return LLVMBuildInBoundsGEP(builder, ptr, indices.ptr, indices.length, "");

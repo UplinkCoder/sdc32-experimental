@@ -117,7 +117,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 				QualAstType type;
 				switch(trange.front.type) {
 					case Ref :
-						lookahead.popFront();
+					lookahead.popFront();
 						
 						if(lookahead.front.type == Identifier) goto case Identifier;
 						
@@ -129,6 +129,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 						if(lookahead.front.type == Comma || lookahead.front.type == Semicolon) {
 							if(trange.front.type == Ref) {
 								trange.popFront();
+								assert(0,"foreach can't deal with ref (for now)");
 							}
 							
 							type = QualAstType(new AutoType());
@@ -146,9 +147,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 				
 				trange.match(Identifier);
 	
-				assert(0, "foreach can't be parsed yet");
-
-				//return new VariableDeclaration(elementLocation, type, name, initExpression);
+				return new VariableDeclaration(elementLocation, type, name, null);
 			}
 			
 			VariableDeclaration[] tupleElements = [parseForeachListElement()];

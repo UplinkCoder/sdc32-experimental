@@ -397,7 +397,7 @@ struct IdentifierPostProcessor(alias handler, bool asAlias) {
 		
 		return handler(s);
 	}
-	
+
 	Ret visit(SymbolAlias s) {
 		scheduler.require(s, Step.Signed);
 		return visit(s.symbol);
@@ -630,6 +630,17 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 	
 	Ret visit(QualType qt) {
 		return this.dispatch!(t => bailout(t))(qt.type);
+	}
+
+	Ret visit(ArrayType t) {
+		if(name == BuiltinName!"length") {
+			// FIXME pass explicit location
+			auto location = Location.init; 
+			auto s = new IntegerLiteral!false(location, t.size, TypeKind.Uint);
+			s.type = pass.object.getSizeT().type;
+			return handler(s);
+		}
+		return bailout(t);
 	}
 	
 	Ret visit(SliceType t) {

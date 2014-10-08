@@ -72,7 +72,7 @@ struct ExpressionVisitor {
 	Expression visit(CharacterLiteral e) {
 		return e;
 	}
-	
+
 	Expression visit(NullLiteral e) {
 		return e;
 	}
@@ -261,6 +261,8 @@ struct ExpressionVisitor {
 		Expression ifFalse = visit(e.ifFalse);
 
 		QualType exprType = pass.getPromotedType(e.location, peelAlias(ifTrue.type).type, peelAlias(ifTrue.type).type);
+		ifTrue = pass.buildImplicitCast(ifTrue.location, exprType,ifTrue);
+		ifFalse = pass.buildImplicitCast(ifTrue.location, exprType,ifFalse);
 
 		return new TernaryExpression(e.location,exprType, condition, ifTrue, ifFalse);
 	}
@@ -340,7 +342,15 @@ struct ExpressionVisitor {
 		
 		return new UnaryExpression(e.location, type, op, expr);
 	}
-	
+
+	/*Expression visit(AstConditionalExpression e) {
+		auto condition = buildExplicitCast(pass, e.condition.location, getBuiltin(TypeKind.Bool), visit(e.condition));
+		auto ifTrue = visit(e.ifTrue);
+		auto ifFalse = visit(e.ifFalse);
+
+		return new ConditionalExpression(e.location,condition.type.type,condition,ifTrue,ifFalse);
+	}*/
+
 	Expression visit(AstCastExpression e) {
 		import d.semantic.type;
 		auto tv = TypeVisitor(pass);

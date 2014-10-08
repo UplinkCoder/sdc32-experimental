@@ -18,7 +18,7 @@ import std.string;
 final class TypeGen {
 	private CodeGenPass pass;
 	alias pass this;
-	
+		
 	private LLVMTypeRef[TypeSymbol] typeSymbols;
 	private LLVMValueRef[TypeSymbol] typeInfos;
 	
@@ -157,7 +157,7 @@ final class TypeGen {
 	LLVMTypeRef visit(BuiltinType t) {
 		final switch(t.kind) with(TypeKind) {
 			case None :
-				assert(0, "Not Implemented");
+				assert(0, "Trying it build None Type");
 			
 			case Void :
 				return LLVMVoidTypeInContext(llvmCtx);
@@ -213,7 +213,7 @@ final class TypeGen {
 	
 	LLVMTypeRef visit(SliceType t) {
 		LLVMTypeRef[2] types;
-		types[0] = LLVMInt64TypeInContext(llvmCtx);
+		types[0] = getPtrTypeInContext(llvmCtx);
 		types[1] = LLVMPointerType(visit(t.sliced), 0);
 		
 		return LLVMStructTypeInContext(llvmCtx, types.ptr, 2, false);
