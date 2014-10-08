@@ -132,7 +132,7 @@ class ForStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
 alias AstForStatement = ForStatement!(AstExpression, AstStatement);
 
 /**
- * foreach statements
+ * for statements
  */
 class ForeachStatement : AstStatement {
 	VariableDeclaration[] tupleElements;

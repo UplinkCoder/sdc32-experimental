@@ -167,63 +167,7 @@ struct StatementVisitor {
 		
 		flattenedStmts[$ - 1] = new ForStatement(f.location, initialize, condition, increment, statement);
 	}
-
-	void visit(ForeachStatement fr) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		currentScope = (cast(NestedScope) oldScope).clone();
-
-		auto getVariableExpressoionFromDeclaration(VariableDeclaration vd,QualType t) {
-			import d.semantic.defaultinitializer;
-			import d.semantic.declaration;
-
-			vd.value = InitBuilder(pass).visit(vd.location, t);
-			auto syms = DeclarationVisitor(pass).flatten(vd);
-			assert(syms.length == 1 && syms[] !is null, "VariableDecl in foreach has more then one Symbol?!?!");
-			auto v = cast(Variable) syms[0];
-			v.type = t;
-			return new VariableExpression(vd.location, v);
-		}
-		import d.semantic.expression;
-		import d.semantic.defaultinitializer;
-		auto ev = ExpressionVisitor(pass);
-
-
-		auto expr = ev.visit(fr.iterrated);
-
-		if (auto at = cast(ArrayType) expr.type.type) {
-			import d.semantic.caster;
-
-			QualType elementType = at.elementType;
-			Expression size = buildImplicitCast(pass, fr.location, pass.object.getSizeT().type, new IntegerLiteral!false(fr.location,at.size,TypeKind.Uint));
-			//size.type = pass.object.getSizeT().type;
-			VariableExpression idx;
-			VariableExpression elem;
-
-			if (fr.tupleElements.length==2) {
-				idx = getVariableExpressoionFromDeclaration(fr.tupleElements[0], pass.object.getSizeT().type);
-				elem = getVariableExpressoionFromDeclaration(fr.tupleElements[1], elementType);
-			} else {
-				idx = new VariableExpression(fr.location, new Variable(fr.location, pass.object.getSizeT().type, BuiltinName!"", InitBuilder(pass).visit(fr.location, pass.object.getSizeT.type)));
-				elem = getVariableExpressoionFromDeclaration(fr.tupleElements[0], elementType);
-			}
-			
-			auto inc =  new UnaryExpression(fr.location, idx.type, UnaryOp.PostInc, idx);
-			auto cmpr = new BinaryExpression(fr.location, getBuiltin(TypeKind.Bool), BinaryOp.Less, idx, size);
-			auto assign = new BinaryExpression(fr.location, elementType, BinaryOp.Assign, elem, new IndexExpression(fr.location, elementType, expr, [idx]));
-			
-			Statement[] stmts = [new ExpressionStatement(assign)];
-			stmts ~= autoBlock(fr.statement);
-			Statement stmt = new BlockStatement(fr.statement.location, stmts);
-			flattenedStmts ~= new ForStatement(fr.location, new ExpressionStatement(idx), cmpr, inc, stmt);
-		
-		} else if (auto st = cast(SliceType) expr.type.type) {
-			assert(0,"foreach for SliceTypes not Implemented");
-		} else {
-			assert(0,typeid(expr.type.type).toString~" is not supported as foreach argument (for now)");
-		}
-	}
-
+	
 	void visit(AstReturnStatement r) {
 		import d.semantic.expression;
 		auto ev = ExpressionVisitor(pass);

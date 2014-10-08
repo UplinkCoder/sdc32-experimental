@@ -36,12 +36,12 @@ final class LLVMBackend {
 		
 		LLVMLinkInJIT();
 		LLVMInitializeX86AsmPrinter();
-		
+
 		this.optLevel = optLevel;
 		this.linkerParams = linkerParams;
 		import d.semantic.sizeof;
 		bitWidth = SizeofVisitor(sPass).visit(sPass.object.getSizeT().type)*8;
-		sPass.setEvaluator(getEvaluator());
+		
 
 		pass = new CodeGenPass(context, name, bitWidth);
 		
@@ -58,6 +58,7 @@ final class LLVMBackend {
 		}
 		
 		evaluator = new LLVMEvaluator(executionEngine, pass);
+		sPass.setEvaluator(evaluator);
 	}
 	
 	auto getPass() {

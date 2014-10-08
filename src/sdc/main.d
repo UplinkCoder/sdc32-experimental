@@ -69,7 +69,7 @@ int main(string[] args) {
 	auto files = args[1 .. $];
 	
 	auto executable = files[0].idup.baseName(".d");
-	auto objFile = files[0][0 .. $-2] ~ ".o";
+	auto objFile = executable~".o";
 	if(outputFile.length) {
 		if(dontLink) {
 			objFile = outputFile;
