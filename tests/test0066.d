@@ -26,7 +26,7 @@ int main() {
 		assert(mem[i] == str[i]);
 	}
 	
-	foreach(i, ref char c; mem[0..3]) {
+/*	foreach(i, ref char c; mem[0..3]) {
 		c = 'o';
 	}
 	
@@ -61,7 +61,7 @@ int main() {
 		
 		count++;
 	}
-	assert(count == 2);
+	assert(count == 2); */
 	return 0;
 }
 

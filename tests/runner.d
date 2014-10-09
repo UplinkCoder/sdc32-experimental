@@ -20,7 +20,7 @@ import core.stdc.stdlib;
 version (linux) import core.sys.posix.unistd;
 
 
-immutable SDC = "../bin/sdc";
+immutable SDC = "../sdc";
 
 version (Windows) {
     immutable EXE_EXTENSION = ".exe";
