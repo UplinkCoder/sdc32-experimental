@@ -260,11 +260,12 @@ struct ExpressionVisitor {
 		Expression ifTrue = visit(e.ifTrue);
 		Expression ifFalse = visit(e.ifFalse);
 
-		QualType exprType = pass.getPromotedType(e.location, peelAlias(ifTrue.type).type, peelAlias(ifTrue.type).type);
-		ifTrue = pass.buildImplicitCast(ifTrue.location, exprType,ifTrue);
-		ifFalse = pass.buildImplicitCast(ifTrue.location, exprType,ifFalse);
+		QualType exprType = getPromotedType(pass, e.location, ifTrue.type.type, ifFalse.type.type);
 
-		return new TernaryExpression(e.location,exprType, condition, ifTrue, ifFalse);
+		ifTrue = buildExplicitCast(pass, e.ifTrue.location, exprType, ifTrue);
+		ifFalse = buildExplicitCast(pass, e.ifFalse.location, exprType, ifFalse);
+
+		return new TernaryExpression(e.location, exprType, condition, ifTrue, ifFalse);
 	}
 
 	private Expression handleAddressOf(Expression expr) {

@@ -207,7 +207,14 @@ struct StatementVisitor {
 				import d.semantic.identifier;
 
 				elementType = st.sliced;
-				assert(0,"foreach can't do sliceTypes yet");
+				/*return SymbolResolver!(delegate Expression(identified) {
+					alias T = typeof(identified);
+					static if(is(T : Expression)) {
+						return resolve(BuiltinName!"length");
+					} else {
+						return pass.raiseCondition!Expression(identified.location, "Can't get length of " ~ identified.name.toString(pass.context) ~ ".");
+					}
+				})(pass).visit(fr.iterrated);*/
 			}
 
 			size.type = pass.object.getSizeT().type;
