@@ -172,6 +172,8 @@ struct StatementVisitor {
 		scope(exit) currentScope = oldScope;
 		currentScope = (cast(NestedScope) oldScope).clone();
 
+		QualType sizeT = peelAlias(pass.object.getSizeT.type).type;
+
 		auto getVariableExpressoionFromDeclaration(VariableDeclaration vd,QualType t) {
 			import d.semantic.defaultinitializer;
 			import d.semantic.declaration;
@@ -217,20 +219,20 @@ struct StatementVisitor {
 				})(pass).visit(fr.iterrated);*/
 			}
 
-			size.type = pass.object.getSizeT().type;
+			size.type = sizeT;
 
 			if (fr.tupleElements.length==2) {
-				idx = getVariableExpressoionFromDeclaration(fr.tupleElements[0], pass.object.getSizeT().type);
+				idx = getVariableExpressoionFromDeclaration(fr.tupleElements[0], sizeT);
 				elem = getVariableExpressoionFromDeclaration(fr.tupleElements[1], elementType);
 			} else {
-				idx = new VariableExpression(fr.location, new Variable(fr.location, pass.object.getSizeT().type, BuiltinName!"", InitBuilder(pass).visit(fr.location, pass.object.getSizeT.type)));
+				idx = new VariableExpression(fr.location, new Variable(fr.location, sizeT, BuiltinName!"", InitBuilder(pass).visit(fr.location, sizeT)));
 				elem = getVariableExpressoionFromDeclaration(fr.tupleElements[0], elementType);
 			}
 			
 			auto inc =  new UnaryExpression(fr.location, idx.type, UnaryOp.PostInc, idx);
 			auto cmpr = new BinaryExpression(fr.location, getBuiltin(TypeKind.Bool), BinaryOp.Less, idx, size);
 			auto assign = new BinaryExpression(fr.location, elementType, BinaryOp.Assign, elem, new IndexExpression(fr.location, elementType, expr, [idx]));
-			
+
 			Statement[] stmts = [new ExpressionStatement(assign)];
 			stmts ~= autoBlock(fr.statement);
 			Statement stmt = new BlockStatement(fr.statement.location, stmts);

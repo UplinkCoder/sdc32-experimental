@@ -105,8 +105,10 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			
 			location.spanTo(statement.location);
 			return new AstForStatement(location, init, condition, increment, statement);
-		
-		case Foreach, ForeachReverse :
+		case ForeachReverse :
+			assert(0,"foreach_reverse is not supported for now");
+
+		case Foreach :
 			trange.popFront();
 			trange.match(OpenParen);
 			
@@ -168,7 +170,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			
 			auto statement = trange.parseStatement();
 			location.spanTo(statement.location);
-			
+
 			return new ForeachStatement(location, tupleElements, iterrated, statement);
 		
 		case Return :

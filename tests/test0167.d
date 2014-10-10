@@ -6,19 +6,20 @@ import std.stdio;
 int main() {
 
 	ubyte[4] arr;
-/*	struct SimpleInputRange {
+	struct SimpleInputRange {
 		int cnt;
-		int front() {
-			return cnt;
-		}
-		void popFront() {
-			cnt++;
-		}
-		bool empty() {
-			return cnt>10;
-		}
+		alias cnt this;
+	//	int front() {
+	//		return cnt;
+	//	}
+	//	void popFront() {
+	//		cnt++;
+	//	}
+	//	bool empty() {
+	//		return cnt>10;
+	//	}
 	}
-*/
+
 	size_t res=0;
 
 	arr[0] = cast(ubyte)12;
@@ -40,7 +41,9 @@ int main() {
 	bool _true = true;
 	bool _false = false; 
 //	ran = ran?22:0;
-//	SimpleInputRange sir;
+	SimpleInputRange sir;
+//	sir = 12;
+//	assert(sir.cnt==12);
 //	foreach(e;sir) {
 //		writeln(e);
 //	}
