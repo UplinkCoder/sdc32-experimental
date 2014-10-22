@@ -8,6 +8,7 @@ import d.ast.base;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
+import d.semantic.valuerange;
 
 import d.exception;
 import d.location;
@@ -15,6 +16,10 @@ import d.location;
 import std.algorithm;
 
 Expression buildImplicitCast(SemanticPass pass, Location location, QualType to, Expression e) {
+	if (auto bt = cast(BuiltinType) to.type) {
+		if (isIntegral(bt.kind) && ValueRangeVisitor(pass).visit(e).isInRangeOf(bt.kind))
+			return build!true(pass, location, to, e);
+	}
 	return build!false(pass, location, to, e);
 }
 
