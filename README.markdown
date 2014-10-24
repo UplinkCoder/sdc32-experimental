@@ -1,4 +1,4 @@
-SDC32 - The Stupid D Compiler - EXPERIMENTAL 32BIT FORK
+SDC32 - The Stupid D Compiler - EXPERIMENTAL 32BIT FORK  [![Build Status](https://travis-ci.org/UplinkCoder/sdc32-experimental.svg?branch=master)](https://travis-ci.org/UplinkCoder/sdc32-experimental)
 ===========================
 This is _not_ the home of a [D](http://dlang.org/) compiler.
 SDC is at the moment, particularly stupid; it is a work in progress. Feel free to poke around, but don't expect it to compile your code.
