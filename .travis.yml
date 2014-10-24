@@ -11,7 +11,7 @@ install:
 - wget http://downloads.dlang.org/releases/2014/${DMD}
 - sudo dpkg -i ${DMD} || true
 - sudo apt-get -y update || true
-- sudo apt-get -fy install || true
+- sudo apt-get -fy install llvm-3.4 || true
 - sudo dpkg -i ${DMD}
 - wget http://code.dlang.org/files/${DUB}.tar.gz
 - sudo tar -C /usr/local/bin -zxf ${DUB}.tar.gz
