@@ -18,6 +18,7 @@ install:
 
 script:
 - dub test
+- dmd tests/runner.d -oftests/runner
 - tests/runner
 
 
