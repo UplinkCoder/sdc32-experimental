@@ -3,7 +3,6 @@ language: d
 # - dmd
 install:
 # dmd
-# dub
 - DMD_VER=2.066.0
 - DMD=dmd_${DMD_VER}-0_amd64.deb
 - DUB_VER=0.9.22
@@ -13,11 +12,10 @@ install:
 - sudo apt-get -y update || true
 - sudo apt-get -fy install llvm-3.4 || true
 - sudo dpkg -i ${DMD}
-- wget http://code.dlang.org/files/${DUB}.tar.gz
-- sudo tar -C /usr/local/bin -zxf ${DUB}.tar.gz
+
 
 script:
-- dub
+- make
 - dmd tests/runner.d -oftests/runner
 - cd tests
 - ../sdc -m32 -o test0001.bin test0001.d -I../libs -L../libsdrt/lib
