@@ -19,6 +19,6 @@ install:
 script:
 - dub
 - dmd tests/runner.d -oftests/runner
-- tests/runner
+- cd tests && ./runner
 
 
