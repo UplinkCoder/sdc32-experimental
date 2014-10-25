@@ -20,7 +20,7 @@ import core.stdc.stdlib;
 version (linux) import core.sys.posix.unistd;
 
 
-immutable SDC = "../sdc";
+immutable SDC = "../bin/sdc";
 
 version (Windows) {
     immutable EXE_EXTENSION = ".exe";
@@ -103,7 +103,7 @@ void test(string filename, string compiler)
         file.remove(exeName);
     }
     if (compiler == SDC) {
-        command = format(`%s -m32 -o %s "%s" %s -I../libs -L../libsdrt/lib`, SDC, exeName, filename, cmdDeps);
+        command = format(`%s -o %s "%s" %s`, SDC, exeName, filename, cmdDeps);
     } else {
         command = format(`%s %s "%s" %s`, compiler, exeName, filename, cmdDeps);
     }
