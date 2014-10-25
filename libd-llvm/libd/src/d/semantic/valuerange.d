@@ -32,9 +32,9 @@ struct ValueRange {
 			return ValueRange(_min + rhs._min, _max + rhs._max);
 		} else static if (op == "-") {
 			return ValueRange(_min - rhs._max, _max - rhs._min);
-		} else static if (op == "%") {
-			auto r_max = max(abs(rhs._min), rhs.max) - 1;
-			return ValueRange(min(_min, -r_max), max(_max, r_max));
+//		} else static if (op == "%") {
+//			auto r_max = max(abs(rhs._min), rhs.max) - 1;
+//			return ValueRange(min(_min, -r_max), max(_max, r_max));
 		} else
 			return ValueRange.init;
 	}
