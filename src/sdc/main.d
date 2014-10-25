@@ -37,6 +37,7 @@ int main(string[] args) {
 	getopt(
 		args, std.getopt.config.caseSensitive,
 		"I", &includePath,
+		"L", &libPath,
 		"O", &optLevel,
 		"c", &dontLink,
 		"m",&bitWidth,
@@ -50,6 +51,10 @@ int main(string[] args) {
 		}
 	);
 	
+	foreach(path; libPath) {
+		conf["libPath"] ~= path;
+	}
+
 	foreach(path; includePath) {
 		conf["includePath"] ~= path;
 	}
