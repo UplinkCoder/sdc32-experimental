@@ -4,6 +4,7 @@
 // Tests simple literal expressions.
 
 int main() {
+	assert(0, "Regression! DOh");
 	return 42 + 21 * 2;
 }
 
