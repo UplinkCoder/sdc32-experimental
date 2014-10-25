@@ -103,7 +103,7 @@ void test(string filename, string compiler)
         file.remove(exeName);
     }
     if (compiler == SDC) {
-        command = format(`%s -m32 -o %s "%s" %s -I../libs`, SDC, exeName, filename, cmdDeps);
+        command = format(`%s -m32 -o %s "%s" %s -I../libs -L../lib`, SDC, exeName, filename, cmdDeps);
     } else {
         command = format(`%s %s "%s" %s`, compiler, exeName, filename, cmdDeps);
     }
