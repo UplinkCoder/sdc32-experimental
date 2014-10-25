@@ -20,6 +20,6 @@ script:
 - dub
 - dmd tests/runner.d -oftests/runner
 - cd tests
-- ../sdc test0001.d
+- ../sdc test0001.d -I../libs
 - ./runner
 
