@@ -27,6 +27,7 @@ int main(string[] args) {
 	auto conf = buildConf();
 	
 	string[] includePath;
+	string[] libPath;
 	string[] versions;
 	uint optLevel;
 	bool dontLink;
