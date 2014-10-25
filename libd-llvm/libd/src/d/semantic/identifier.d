@@ -634,8 +634,6 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 
 	Ret visit(ArrayType t) {
 		if(name == BuiltinName!"length") {
-			// FIXME pass explicit location
-			auto location = Location.init; 
 			auto s = new IntegerLiteral!false(location, t.size, TypeKind.Uint);
 			s.type = pass.object.getSizeT().type;
 			return handler(s);

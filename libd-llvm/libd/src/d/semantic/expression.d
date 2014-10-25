@@ -254,17 +254,16 @@ struct ExpressionVisitor {
 		return new BinaryExpression(e.location, type, op, lhs, rhs);
 	}
 
-
 	Expression visit(AstTernaryExpression e) {
-		Expression condition = buildExplicitCast(pass, e.condition.location, getBuiltin(TypeKind.Bool), visit(e.condition));
-		Expression ifTrue = visit(e.ifTrue);
-		Expression ifFalse = visit(e.ifFalse);
+		auto condition = buildExplicitCast(pass, e.condition.location, getBuiltin(TypeKind.Bool), visit(e.condition));
+		auto ifTrue = visit(e.ifTrue);
+		auto ifFalse = visit(e.ifFalse);
 
-		QualType exprType = getPromotedType(pass, e.location, ifTrue.type.type, ifFalse.type.type);
+		auto exprType = getPromotedType(pass, e.location, ifTrue.type.type, ifFalse.type.type);
 
-		ifTrue = buildExplicitCast(pass, e.ifTrue.location, exprType, ifTrue);
-		ifFalse = buildExplicitCast(pass, e.ifFalse.location, exprType, ifFalse);
-
+		ifTrue = buildExplicitCast(pass, ifTrue.location, exprType, ifTrue);
+		ifFalse = buildExplicitCast(pass, ifFalse.location, exprType, ifFalse);
+		
 		return new TernaryExpression(e.location, exprType, condition, ifTrue, ifFalse);
 	}
 

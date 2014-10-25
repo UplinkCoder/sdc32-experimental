@@ -2,11 +2,13 @@
 	"name": "sdc",
 	
 	"description": "SDC's driver-lib",
-	"copyright": "Copyright © 2014, deadlnix",
-	"authors": ["deadlnix"],
+	"copyright": "Copyright © 2012 Amaury SECHET",
+	"authors": ["Amaury SECHET"],
+	"license" : "MIT",
 	"mainSourceFile" : "src/sdc/main.d",	
 	"importPaths" : ["libd-llvm/src","libd-llvm/libd/src","libd-llvm/import"],
 	"dependencies": {
 		"libd-llvm":{"version":"~master","path":"libd-llvm"}	
-	}
+	},
+	"postBuildCommands":["cd libsdrt && make ARCHFLAG=-m32 2>/dev/null"] 
 }

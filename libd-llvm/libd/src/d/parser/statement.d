@@ -105,10 +105,9 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			
 			location.spanTo(statement.location);
 			return new AstForStatement(location, init, condition, increment, statement);
-		case ForeachReverse :
-			assert(0,"foreach_reverse is not supported for now");
-
-		case Foreach :
+		
+		case Foreach, ForeachReverse :
+			bool reverse = (trange.front.type == ForeachReverse);
 			trange.popFront();
 			trange.match(OpenParen);
 			
@@ -131,7 +130,6 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 						if(lookahead.front.type == Comma || lookahead.front.type == Semicolon) {
 							if(trange.front.type == Ref) {
 								trange.popFront();
-								assert(0,"foreach can't deal with ref (for now)");
 							}
 							
 							type = QualAstType(new AutoType());
@@ -148,7 +146,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 				elementLocation.spanTo(trange.front.location);
 				
 				trange.match(Identifier);
-	
+
 				return new VariableDeclaration(elementLocation, type, name, null);
 			}
 			
@@ -170,8 +168,8 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			
 			auto statement = trange.parseStatement();
 			location.spanTo(statement.location);
-
-			return new ForeachStatement(location, tupleElements, iterrated, statement);
+			
+			return new ForeachStatement(location, reverse, tupleElements, iterrated, statement);
 		
 		case Return :
 			trange.popFront();

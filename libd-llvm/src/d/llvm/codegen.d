@@ -64,7 +64,7 @@ final class CodeGenPass {
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
 	
-	this(Context context, string name, uint bitWidth) {
+	this(Context context, string modulename, uint bitWidth) {
 		this.context	= context;
 		this.bitWidth   = bitWidth; 
 		
@@ -77,7 +77,7 @@ final class CodeGenPass {
 		
 		llvmCtx = LLVMContextCreate();
 		builder = LLVMCreateBuilderInContext(llvmCtx);
-		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), llvmCtx);
+		dmodule = LLVMModuleCreateWithNameInContext(modulename.toStringz(), llvmCtx);
 		
 		LLVMValueRef[3] branch_metadata;
 		
@@ -286,7 +286,7 @@ final class DruntimeGen {
 	
 	auto getArrayBound() {
 		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoReturn);
-		return getNamedFunction("_d_array_bounds", LLVMFunctionType(LLVMVoidTypeInContext(llvmCtx), [LLVMStructTypeInContext(llvmCtx, [getPtrTypeInContext(llvmCtx), LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0)].ptr, 2, false), LLVMInt32TypeInContext(llvmCtx)].ptr, 2, false));
+		return getNamedFunction("_d_arraybounds", LLVMFunctionType(LLVMVoidTypeInContext(llvmCtx), [LLVMStructTypeInContext(llvmCtx, [getPtrTypeInContext(llvmCtx), LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0)].ptr, 2, false), LLVMInt32TypeInContext(llvmCtx)].ptr, 2, false));
 	}
 	
 	auto getAllocMemory() {

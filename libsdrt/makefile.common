@@ -1,13 +1,16 @@
 # Common definitions
-ARCHFLAG = -m32 
+
 LIBSDRT_SRC = $(wildcard $(LIBSDRT_ROOT)/src/d/rt/*.d)
 LIBSDRT_OBJ = $(LIBSDRT_SRC:$(LIBSDRT_ROOT)/src/d/rt/%.d=obj/rt/%.o)
 
-LIBSDRT = lib/libsdrt.a
+ifeq ($(ARCHFLAG),-m32)
+	LIBSDRT = lib/libsdrt32.a
+else
+	LIBSDRT = lib/libsdrt.a
+endif
+ALL_TARGET ?= $(LIBSDRT) #$(LIBSDRT_BC)
 
-ALL_TARGET ?= $(LIBSDRT)
-
-LIBSDRT_IMPORTS = -I$(LIBSDRT_ROOT)/src
+LIBSDRT_IMPORTS = -I$(LIBSDRT_ROOT)/src -I../libs
 
 all: $(ALL_TARGET)
 

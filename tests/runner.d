@@ -243,8 +243,8 @@ void main(string[] args)
         write("Press any key to exit...");
         readln();
     }
-    
-    if (regressions) exit(1);
+
+    if(regressions) exit(-1);
 }
 
 /// Print usage to stdout.

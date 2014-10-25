@@ -16,10 +16,6 @@ import d.location;
 import std.algorithm;
 
 Expression buildImplicitCast(SemanticPass pass, Location location, QualType to, Expression e) {
-	if (auto bt = cast(BuiltinType) to.type) {
-		if (isIntegral(bt.kind) && ValueRangeVisitor(pass).visit(e).isInRangeOf(bt.kind))
-			return build!true(pass, location, to, e);
-	}
 	return build!false(pass, location, to, e);
 }
 
@@ -70,6 +66,12 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, QualType
 	
 	auto kind = Caster!(isExplicit, delegate CastKind(c, t) {
 		alias T = typeof(t);
+		static if (is(T : BuiltinType)) {
+			if (t && ValueRangeVisitor(pass).visit(e).isInRangeOf(t.kind)) {
+				return CastKind.Pad;
+			}
+		}
+
 		static if (is(T : StructType)) {
 			auto aliasThis = t.dstruct.dscope.aliasThis;
 		} else static if (is(T : ClassType)) {
@@ -134,10 +136,10 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, QualType
 	switch(kind) with(CastKind) {
 		case Exact:
 			return e;
-		
+			
 		default:
 			return new CastExpression(location, kind, to, e);
-		
+			
 		case Invalid:
 			return pass.raiseCondition!Expression(location, "Can't cast " ~ e.type.toString(pass.context) ~ " to " ~ to.toString(pass.context));
 	}
@@ -159,7 +161,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	
 	CastKind bailout(T)(T t) if(is(T : Type)) {
 		static if (hasBailoutOverride) {
-			 return bailoutOverride(this, t);
+			return bailoutOverride(this, t);
 		} else {
 			return CastKind.Invalid;
 		}
@@ -220,26 +222,26 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 				case None:
 				case Void:
 					return CastKind.Invalid;
-				
+					
 				case Bool:
 					if(isIntegral(to)) {
 						return CastKind.Pad;
 					}
 					
 					return CastKind.Invalid;
-				
+					
 				case Char:
 					from = integralOfChar(from);
 					goto case Ubyte;
-				
+					
 				case Wchar:
 					from = integralOfChar(from);
 					goto case Ushort;
-				
+					
 				case Dchar:
 					from = integralOfChar(from);
 					goto case Uint;
-				
+					
 				case Ubyte:
 				case Ushort:
 				case Uint:
@@ -274,14 +276,16 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 								return CastKind.Pad;
 							} else static if(isExplicit) {
 								return CastKind.Trunc;
+							/*} else if (ValueRangeVisitor().visit(e).isInRangeOf(to)) {
+								return CastKind.Pad;*/
 							} else {
 								return CastKind.Invalid;
 							}
-						
+							
 						default:
 							assert(0);
 					}
-				
+					
 				case Float:
 				case Double:
 				case Real:
@@ -327,7 +331,11 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	}
 	
 	CastKind visit(Type to, BuiltinType t) {
-		return FromBuiltin().visit(t.kind, to);
+		CastKind r = FromBuiltin().visit(t.kind, to);
+		if (r == CastKind.Invalid) {
+			r = bailout(cast(BuiltinType)to);
+		}
+		return r;
 	}
 	
 	struct FromPointer {
@@ -365,24 +373,24 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 					}
 					
 					goto default;
-				
+					
 				case Exact :
 					return Qual;
-				
-				static if(isExplicit) {
-					default :
+					
+					static if(isExplicit) {
+						default :
 						return Bit;
-				} else {
-					case Bit :
+					} else {
+						case Bit :
 						if(canConvert(from.qualifier, t.pointed.qualifier)) {
 							return subCast;
 						}
 						
 						return Invalid;
-					
-					default :
+						
+						default :
 						return Invalid;
-				}
+					}
 			}
 		}
 		
@@ -433,24 +441,24 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 					}
 					
 					goto default;
-				
+					
 				case Exact :
 					return Qual;
-				
-				static if(isExplicit) {
-					default :
+					
+					static if(isExplicit) {
+						default :
 						return Bit;
-				} else {
-					case Bit :
+					} else {
+						case Bit :
 						if(canConvert(from.qualifier, t.sliced.qualifier)) {
 							return subCast;
 						}
 						
 						return Invalid;
-					
-					default :
+						
+						default :
 						return Invalid;
-				}
+					}
 			}
 		}
 	}
@@ -493,7 +501,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			while(downcast !is downcast.base) {
 				// Automagically promote to base type.
 				downcast = downcast.base;
-			
+				
 				if(downcast is from) {
 					return CastKind.Down;
 				}

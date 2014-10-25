@@ -1,4 +1,4 @@
-SDC ?= sdc
+SDC ?= ../sdc
 
 LIBSDRT_ROOT = .
 LIBSDRT_EXTRA_DEPS =

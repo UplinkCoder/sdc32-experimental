@@ -476,8 +476,49 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 				t.name = getValue();
 				
 				return t;
+			} else static if(s == "q{") {
+				mixin CharPumper!false;
+				
+			Pump: while(1) {
+					// TODO: check for unicode line break.
+					while(c != '}' && c != '\r' && c != '\n') {
+						putChar(lexEscapeChar());
+						c = r.front;
+					}
+					
+					popChar();
+					switch(c) {
+						case '}' :
+							// End of string.
+							break Pump;
+							
+						case '\r' :
+							c = r.front;
+							
+							// \r\n is a special case.
+							if(c == '\n') {
+								popChar();
+								c = r.front;
+							}
+							
+							line++;
+							break;
+							
+						case '\n' :
+							line++;
+							break;
+							
+						default :
+							assert(0, "Unrecheable.");
+					}
+				}
+				
+				t.location = locationProvider(l, begin, index - begin);
+				t.name = getValue();
+				
+				return t;
 			} else {
-				assert(0, "string literal using " ~ s ~ "not supported");
+				assert(0, "string literal using " ~ s ~ " not supported");
 			}
 		}
 		

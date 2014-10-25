@@ -172,8 +172,6 @@ struct StatementVisitor {
 		scope(exit) currentScope = oldScope;
 		currentScope = (cast(NestedScope) oldScope).clone();
 
-		QualType sizeT = peelAlias(pass.object.getSizeT.type).type;
-
 		auto getVariableExpressoionFromDeclaration(VariableDeclaration vd,QualType t) {
 			import d.semantic.defaultinitializer;
 			import d.semantic.declaration;
@@ -199,45 +197,51 @@ struct StatementVisitor {
 		if (at||st) {
 			QualType elementType;
 			Expression size;
+			Expression inc;
+			Expression cmpr;
 			VariableExpression idx;
 			VariableExpression elem;
 
 			if (at) {
 				elementType = at.elementType;
-				size = new IntegerLiteral!false(fr.location,at.size,TypeKind.Uint);
 			} else {
-				import d.semantic.identifier;
-
 				elementType = st.sliced;
-				/*return SymbolResolver!(delegate Expression(identified) {
-					alias T = typeof(identified);
-					static if(is(T : Expression)) {
-						return resolve(BuiltinName!"length");
-					} else {
-						return pass.raiseCondition!Expression(identified.location, "Can't get length of " ~ identified.name.toString(pass.context) ~ ".");
-					}
-				})(pass).visit(fr.iterrated);*/
 			}
 
-			size.type = sizeT;
-
-			if (fr.tupleElements.length==2) {
-				idx = getVariableExpressoionFromDeclaration(fr.tupleElements[0], sizeT);
+			import d.semantic.identifier;
+			size = SymbolResolver!(delegate Expression (e) {
+				static if(is(typeof(e) : Expression)) {
+					return buildImplicitCast(pass, e.location, pass.object.getSizeT().type, e);
+				}
+				assert(0,"Unreachable");
+			})(pass).resolveInExpression(expr.location, expr, BuiltinName!"length");
+			
+			if (fr.tupleElements.length == 2) {
+				idx = getVariableExpressoionFromDeclaration(fr.tupleElements[0], pass.object.getSizeT().type);
 				elem = getVariableExpressoionFromDeclaration(fr.tupleElements[1], elementType);
 			} else {
-				idx = new VariableExpression(fr.location, new Variable(fr.location, sizeT, BuiltinName!"", InitBuilder(pass).visit(fr.location, sizeT)));
+				idx = new VariableExpression(fr.location, new Variable(fr.location, pass.object.getSizeT().type, BuiltinName!"", InitBuilder(pass).visit(fr.location, pass.object.getSizeT.type)));
 				elem = getVariableExpressoionFromDeclaration(fr.tupleElements[0], elementType);
 			}
-			
-			auto inc =  new UnaryExpression(fr.location, idx.type, UnaryOp.PostInc, idx);
-			auto cmpr = new BinaryExpression(fr.location, getBuiltin(TypeKind.Bool), BinaryOp.Less, idx, size);
+
+			/*	if (fr.reverse) {
+				idx.var.value = size.value;
+				import std.stdio;
+				writeln(idx.var.value.toString(context));
+				inc =  new UnaryExpression(fr.location, idx.type, UnaryOp.PostDec, idx);
+				cmpr = new BinaryExpression(fr.location, getBuiltin(TypeKind.Bool), BinaryOp.Less, new IntegerLiteral!false(fr.location, 0, TypeKind.Uint), idx);
+			} else { */
+				inc =  new UnaryExpression(fr.location, idx.type, UnaryOp.PostInc, idx);
+				cmpr = new BinaryExpression(fr.location, getBuiltin(TypeKind.Bool), BinaryOp.Less, idx, size);
+			//}
+
 			auto assign = new BinaryExpression(fr.location, elementType, BinaryOp.Assign, elem, new IndexExpression(fr.location, elementType, expr, [idx]));
 
 			Statement[] stmts = [new ExpressionStatement(assign)];
 			stmts ~= autoBlock(fr.statement);
 			Statement stmt = new BlockStatement(fr.statement.location, stmts);
-			flattenedStmts ~= new ForStatement(fr.location, new ExpressionStatement(idx), cmpr, inc, stmt);
-		
+			// XXX: ExpressionStatement(idx) seens doubious if anything breaks bcause of this blame UplinkCoder
+			flattenedStmts ~= new ForStatement(fr.location, new ExpressionStatement(idx), cmpr, inc, stmt);		
 		} else {
 			throw new CompileException(expr.location, typeid(expr.type.type).toString~" is not supported as foreach argument (for now)");
 		}
