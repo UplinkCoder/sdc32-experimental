@@ -20,7 +20,7 @@ script:
 - dub
 - dmd tests/runner.d -oftests/runner
 - cd tests
-- ../sdc -m32 -o test0001.bin test0001.d -I../libs -L../lib
+- ../sdc -m32 -o test0001.bin test0001.d -I../libs -L../libsdrt/lib
 - ./test0001.bin
 - echo $?
 - ./runner
