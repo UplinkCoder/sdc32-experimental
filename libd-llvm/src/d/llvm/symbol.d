@@ -273,7 +273,7 @@ final class SymbolGen {
 			import d.llvm.expression;
 			auto eg = ExpressionGen(pass);
 			
-			LLVMValueRef size = LLVMConstTrunc(LLVMSizeOf(ctxType),getPtrTypeInContext(llvmCtx));
+			LLVMValueRef size = LLVMConstTruncOrBitCast(LLVMSizeOf(ctxType),getPtrTypeInContext(llvmCtx));
 			auto alloc = eg.buildCall(druntimeGen.getAllocMemory(), [size]);
 			LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
 			
@@ -318,7 +318,11 @@ final class SymbolGen {
 		auto closureCount = capture.length;
 		
 		// Try to find out if we have the variable in a closure.
-		ClosureLoop: foreach_reverse(closure; contexts) {
+		foreach_reverse(closure; contexts) {
+			if (!closureCount) {
+				break;
+			}
+
 			root = LLVMBuildPointerCast(builder, root, LLVMTypeOf(closure.context), "");
 			
 			// Create enclosed variables.
@@ -327,10 +331,8 @@ final class SymbolGen {
 					// Register the variable.
 					locals[v] = LLVMBuildStructGEP(builder, root, *indexPtr, v.mangle.toStringz());
 					
+					assert(closureCount > 0, "closureCount is 0 or lower.");
 					closureCount--;
-					if (!closureCount) {
-						break ClosureLoop;
-					}
 				}
 			}
 			

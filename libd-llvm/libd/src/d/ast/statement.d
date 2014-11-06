@@ -15,7 +15,7 @@ final:
 /**
  * Blocks
  */
-class BlockStatement(S) if(is(S : AstStatement)) : S {
+class BlockStatement(S) : S  if(is(S : AstStatement)){
 	S[] statements;
 	
 	this(Location location, S[] statements) {
@@ -30,7 +30,7 @@ alias AstBlockStatement = BlockStatement!AstStatement;
 /**
  * Expressions
  */
-class ExpressionStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+class ExpressionStatement(E, S) : S  if(is(E : AstExpression) && is(S : AstStatement)){
 	E expression;
 	
 	this(E expression) {
@@ -58,7 +58,7 @@ class DeclarationStatement : AstStatement {
 /**
  * if statements.
  */
-class IfStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+class IfStatement(E, S) : S  if(is(E : AstExpression) && is(S : AstStatement)){
 	E condition;
 	S then;
 	
@@ -79,7 +79,7 @@ alias AstIfStatement = IfStatement!(AstExpression, AstStatement);
 /**
  * while statements
  */
-class WhileStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+class WhileStatement(E, S) : S  if(is(E : AstExpression) && is(S : AstStatement)){
 	E condition;
 	S statement;
 	
@@ -96,7 +96,7 @@ alias AstWhileStatement = WhileStatement!(AstExpression, AstStatement);
 /**
  * do .. while statements
  */
-class DoWhileStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+class DoWhileStatement(E, S) : S  if(is(E : AstExpression) && is(S : AstStatement)){
 	E condition;
 	S statement;
 	
@@ -113,7 +113,7 @@ alias AstDoWhileStatement = DoWhileStatement!(AstExpression, AstStatement);
 /**
  * for statements
  */
-class ForStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+class ForStatement(E, S) : S  if(is(E : AstExpression) && is(S : AstStatement)){
 	S initialize;
 	E condition;
 	E increment;
@@ -153,7 +153,7 @@ class ForeachStatement : AstStatement {
 /**
  * return statements
  */
-class ReturnStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+class ReturnStatement(E, S) : S  if(is(E : AstExpression) && is(S : AstStatement)){
 	E value;
 	
 	this(Location location, E value) {
@@ -168,7 +168,7 @@ alias AstReturnStatement = ReturnStatement!(AstExpression, AstStatement);
 /**
  * switch statements
  */
-class SwitchStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+class SwitchStatement(E, S) : S  if(is(E : AstExpression) && is(S : AstStatement)){
 	E expression;
 	S statement;
 	
@@ -185,7 +185,7 @@ alias AstSwitchStatement = SwitchStatement!(AstExpression, AstStatement);
 /**
  * case statements
  */
-class CaseStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+class CaseStatement(E, S) : S  if(is(E : AstExpression) && is(S : AstStatement)){
 	E[] cases;
 	
 	this(Location location, E[] cases) {
@@ -200,7 +200,7 @@ alias AstCaseStatement = CaseStatement!(AstExpression, AstStatement);
 /**
  * Label: statement
  */
-class LabeledStatement(S) if(is(S : AstStatement)) : S {
+class LabeledStatement(S) : S  if(is(S : AstStatement)){
 	Name label;
 	S statement;
 	
@@ -217,7 +217,7 @@ alias AstLabeledStatement = LabeledStatement!AstStatement;
 /**
  * synchronized statements
  */
-class SynchronizedStatement(S) if(is(S : AstStatement)) : S {
+class SynchronizedStatement(S) : S  if(is(S : AstStatement)){
 	S statement;
 	
 	this(Location location, S statement) {
@@ -238,7 +238,7 @@ enum ScopeKind {
 	Failure,
 }
 
-class ScopeStatement(S) if(is(S : AstStatement)) : S {
+class ScopeStatement(S) : S  if(is(S : AstStatement)){
 	ScopeKind kind;
 	S statement;
 	
@@ -255,7 +255,7 @@ alias AstScopeStatement = ScopeStatement!AstStatement;
 /**
  * throw statements
  */
-class ThrowStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+class ThrowStatement(E, S) : S  if(is(E : AstExpression) && is(S : AstStatement)){
 	E value;
 	
 	this(Location location, E value) {
