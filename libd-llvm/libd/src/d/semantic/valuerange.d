@@ -41,9 +41,9 @@ struct ValueRange {
 			return fromNumbers([_min * rhs._min, _min * rhs._max, _max * rhs._max]);
 		} else static if (op == "/") {
 			return fromNumbers([_min / rhs._min, _min / rhs._max, _max / rhs._min, ._max / rhs.max]);
-		} else static if (op == "%") {
-			auto r_max = max(abs(rhs._min), rhs.max) - 1;
-			return ValueRange(min(_min, -r_max), max(_max, r_max));
+//		} else static if (op == "%") {
+//			auto r_max = max(abs(rhs._min), rhs.max) - 1;
+//			return ValueRange(min(_min, -r_max), max(_max, r_max));
 		} else
 			return ValueRange.init;
 	}
@@ -51,7 +51,7 @@ struct ValueRange {
 		import std.stdio;
 		assert(ValueRange(0, 255) - ValueRange(128, 128) == ValueRange(-128, 127));
 		assert(ValueRange(3, 3) + ValueRange(-5, 2) == ValueRange(-2, 5));
-		assert(ValueRange(-7, 3) % ValueRange(-5, 2) == ValueRange(-4, 3));
+//		assert(ValueRange(-7, 3) % ValueRange(-5, 2) == ValueRange(-4, 3));
 	}
 
 	ValueRange merge(ValueRange rhs) {
