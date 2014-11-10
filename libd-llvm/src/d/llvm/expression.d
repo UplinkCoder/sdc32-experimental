@@ -834,7 +834,10 @@ struct AddressOfGen {
 	this(CodeGenPass pass) {
 		this.pass = pass;
 	}
-	
+	LLVMValueRef visit(StringLiteral s) {
+		assert(0,"String Literal Really");
+	}
+
 	LLVMValueRef visit(Expression e) {
 		return this.dispatch(e);
 	}

@@ -94,8 +94,7 @@ TypeKind promoteBuiltin(TypeKind t1, TypeKind t2) {
 			assert(0, "Not Implemented");
 		
 		case Void :
-			import std.conv;
-			assert(t2 == Void,"You can't cast " ~ to!string(t2) ~ " to void");
+			assert(t2 == Void);
 			
 			return Void;
 		

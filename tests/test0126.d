@@ -1,6 +1,6 @@
 //T compiles:yes
 //T has-passed:yes
-//T retval:17
+//T retval:25
 // Test template argument deduction.
 
 template Foo(T : U[], U) {

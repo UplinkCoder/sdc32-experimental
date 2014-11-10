@@ -166,8 +166,14 @@ final class SemanticPass {
 		
 		auto type = main.type;
 		auto returnType = cast(BuiltinType) type.returnType.type;
-		auto call = new CallExpression(location, QualType(returnType), new FunctionExpression(location, main), []);
+
+		import std.array;
+		import d.semantic.expression;
+		auto params = main.params.map!(p => new ParameterExpression(p.location,p)).array;
+		auto pTypes = main.params.map!(p => p.type).array;
 		
+		auto call = new CallExpression(location, QualType(returnType), new FunctionExpression(location, main), cast (Expression[]) params);
+
 		Statement[] fbody;
 		if(returnType && returnType.kind == TypeKind.Void) {
 			fbody ~= new ExpressionStatement(call);
@@ -176,8 +182,8 @@ final class SemanticPass {
 			fbody ~= new ReturnStatement(location, call);
 		}
 		
-		type = new FunctionType(Linkage.C, ParamType(getBuiltin(TypeKind.Int), false), [], false);
-		auto bootstrap = new Function(main.location, type, BuiltinName!"_Dmain", [], new BlockStatement(location, fbody));
+		type = new FunctionType(Linkage.C, ParamType(getBuiltin(TypeKind.Int), false), pTypes, false);
+		auto bootstrap = new Function(main.location, type, BuiltinName!"_Dmain", main.params, new BlockStatement(location, fbody));
 		bootstrap.storage = Storage.Enum;
 		bootstrap.visibility = Visibility.Public;
 		bootstrap.step = Step.Processed;

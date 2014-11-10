@@ -95,7 +95,7 @@ private AstTemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange t
 		
 		default :
 			// We probably have a value parameter (or an error).
-			// return trange.parseValueParameter();
+			return trange.parseValueParameter();
 			assert(0);
 	}
 }

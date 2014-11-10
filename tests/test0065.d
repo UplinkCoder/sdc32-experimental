@@ -1,4 +1,4 @@
-//T compiles:yes
+//T compiles:no
 //T has-passed:no
 //T retval:0
 //? desc:Test range foreach.
