@@ -764,7 +764,6 @@ struct ExpressionVisitor {
 	Expression visit(AstIndexExpression e) {
 		auto indexed = visit(e.indexed);
 
-		import d.convenience.traits;
 		auto et = elementType(indexed.type);
 
 		if (et is QualType.init) {
@@ -780,7 +779,6 @@ struct ExpressionVisitor {
 		// TODO: check if it is valid.
 		auto sliced = visit(e.sliced);
 
-		import d.convenience.traits;
 		auto et = elementType(sliced.type);
 		
 		if (et is QualType.init) {
