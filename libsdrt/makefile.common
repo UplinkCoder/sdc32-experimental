@@ -10,7 +10,7 @@ else
 endif
 ALL_TARGET ?= $(LIBSDRT) #$(LIBSDRT_BC)
 
-LIBSDRT_IMPORTS = -I$(LIBSDRT_ROOT)/src -I../../libs
+LIBSDRT_IMPORTS = -I$(LIBSDRT_ROOT)/src -I../libs
 
 all: $(ALL_TARGET)
 
