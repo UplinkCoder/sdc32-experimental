@@ -167,7 +167,7 @@ struct StatementVisitor {
 		flattenedStmts[$ - 1] = new ForStatement(f.location, initialize, condition, increment, statement);
 	}
 
-	void visit(ForeachStatement fr) {
+/+	void visit(ForeachStatement fr) {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		currentScope = (cast(NestedScope) oldScope).clone();
@@ -245,7 +245,7 @@ struct StatementVisitor {
 		} else {
 			throw new CompileException(expr.location, typeid(expr.type.type).toString~" is not supported as foreach argument (for now)");
 		}
-	}
+	}+/
 
 	void visit(AstReturnStatement r) {
 		import d.semantic.expression;

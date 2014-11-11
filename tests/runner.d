@@ -81,7 +81,7 @@ void test(string filename, string compiler)
             expectedRetval = getInt(val);
             break;
         case "dependency":
-            dependencies ~= val ~ to!string(dependencies.length + 1);
+            dependencies ~= val;
             break;
         case "has-passed":
             has = getBool(val);

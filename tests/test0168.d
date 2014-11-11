@@ -1,5 +1,5 @@
 //T compiles:yes
-//T has-passed:yes
+//T has-passed:no
 //T retval:42
 //? Tests TernaryOperator and foreach and ArrayLength and vrp
 
