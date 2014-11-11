@@ -16,9 +16,11 @@ install:
 
 script:
 - make LLVM_CONFIG=llvm-config-3.4
+- dub
+- cat bin/sdc.conf
 - dmd tests/runner.d -oftests/runner
 - cd tests
-- ../sdc -m32 -o test0001.bin test0001.d -I../libs -L../libsdrt/lib
+- bin/sdc -m32 -o test0001.bin test0001.d -Ilibs -Llibsdrt/lib
 - ./test0001.bin
 - echo $?
 - ./runner
