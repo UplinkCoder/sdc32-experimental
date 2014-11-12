@@ -159,11 +159,11 @@ final class LLVMBackend {
 	
 	void link(string objFile, string executable) {
 		string stdlib = "sdrt";
-                if (bitWidth==32) stdlib ~= "32";
+                if (bitWidth==32) stdlib ~= "32 -m32";
 
 		auto linkCommand = "gcc -o " ~ escapeShellFileName(executable) ~ " " ~ escapeShellFileName(objFile) ~ linkerParams ~ " -l"~stdlib;
 		
-		writeln(linkCommand);
+		stderr.writeln(linkCommand);
 		wait(spawnShell(linkCommand));
 	}
 }

@@ -30,6 +30,7 @@ int main(string[] args) {
 	string[] libPath;
 	string[] versions;
 	uint optLevel;
+	bool testMode;
 	bool dontLink;
 	uint bitWidth;
 	bool outputSrc;
@@ -39,12 +40,13 @@ int main(string[] args) {
 		args, std.getopt.config.caseSensitive,
 		"I", &includePath,
 		"L", &libPath,
+		"test", &testMode,
 		"O", &optLevel,
 		"c", &dontLink,
-		"m",&bitWidth,
-		"s",&outputSrc,
-		"version",&versions,
-		"output-bc",&outputBc,
+		"m", &bitWidth,
+		"s", &outputSrc,
+		"version", &versions,
+		"output-bc", &outputBc,
 		"o", &outputFile,
 		"help|h", delegate() {
 			import std.stdio;
@@ -70,6 +72,11 @@ int main(string[] args) {
 			break;
 		default :
 			assert(0,"Unspported arguemt to -m");
+	}
+
+	if (testMode) {
+		import sdc.tester;
+		return Tester(conf, versions).runTests();
 	}
 
 	auto files = args[1 .. $];

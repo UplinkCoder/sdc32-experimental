@@ -37,13 +37,17 @@ final class SDC {
 		context = new Context();
 		versions ~= ["SDC"]; 
 	
-		semantic = new SemanticPass(context, &getFileSource,versions);
+		semantic = new SemanticPass(context, &getFileSource, versions);
 		backend	= new LLVMBackend(context, name, optLevel, conf["libPath"].array.map!(path => " -L" ~ (cast(string) path)).join(), semantic);
 		
 		// Review thet way this whole thing is built.
 		backend.getPass().object = semantic.object;
 	}
-	
+
+	void compile (Source s, Name[] packages = []) {
+		modules ~= semantic.add(s,packages);
+	}
+
 	void compile(string filename) {
 		auto packages = filename[0 .. $ - 2].split("/").map!(p => context.getName(p)).array();
 		modules ~= semantic.add(new FileSource(filename), packages);
