@@ -15,7 +15,7 @@ install:
 
 
 script:
-- make LLVM_CONFIG=llvm-config-3.4
+- make ARCHFLAG="-m32" LLVM_CONFIG=llvm-config-3.4
 - cat bin/sdc.conf
 - dmd tests/runner.d -oftests/runner
 - cd tests
