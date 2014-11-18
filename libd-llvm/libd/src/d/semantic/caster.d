@@ -66,9 +66,11 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, QualType
 	auto kind = Caster!(isExplicit, delegate CastKind(c, t) {
 		alias T = typeof(t);
 		static if (is(T : BuiltinType)) {
-			import d.semantic.valuerange;
-			if (t && ValueRangeVisitor(pass).visit(e).isInRangeOf(t.kind)) {
-				return CastKind.Pad;
+			if (auto bt = cast(BuiltinType) to.type) { 
+				import d.semantic.valuerange;
+				if (ValueRangeVisitor(pass).visit(e).isInRangeOf(ValueRangeVisitor(pass).visit(bt.kind))) {
+					return CastKind.Trunc;
+				}
 			}
 		}
 

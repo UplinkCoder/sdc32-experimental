@@ -11,25 +11,29 @@ import d.ir.type;
 import d.semantic.semantic;
 
 alias BinaryExpression = d.ir.expression.BinaryExpression;
+alias UnaryExpression = d.ir.expression.UnaryExpression;
 alias FieldExpression = d.ir.expression.FieldExpression;
+
+import std.conv;
 
 struct ValueRange {
 	long _min = long.max;
 	long _max = long.min;
-
+	
+	this (long min, long max) {
+		this._min = min;
+		this._max = max;
+	}
+	
 	bool isInRangeOf(ValueRange that) {
 		return (that._max >= _max && that._min <= _min);
 	}
-
-	bool isInRangeOf(TypeKind k) {
-		return isInRangeOf(rangeOf(k));
+	
+	static ValueRange from4Numbers (long n1, long n2, long n3, long n4) {
+		import std.algorithm : max, min;
+		return ValueRange(min(n1, n2, n3, n4), max(n1, n2, n3, n4));
 	}
-
-	static ValueRange fromNumbers(long[] nums) {
-		import std.algorithm : max, min, reduce;
-		return ValueRange(reduce!min(nums), reduce!max(nums));
-	}
-
+	
 	ValueRange opBinary(string op)(ValueRange rhs) {
 		import std.algorithm : max, min;
 		import std.math : abs;
@@ -38,116 +42,131 @@ struct ValueRange {
 		} else static if (op == "-") {
 			return ValueRange(_min - rhs._max, _max - rhs._min);
 		} else static if (op == "*") {
-			return fromNumbers([_min * rhs._min, _min * rhs._max, _max * rhs._max]);
-		} else static if (op == "/") {
-			return fromNumbers([_min / rhs._min, _min / rhs._max, _max / rhs._min, ._max / rhs.max]);
-		} else static if (op == "%") {
-			auto r_max = max(abs(rhs._min), rhs.max) - 1;
-			return ValueRange(min(_min, -r_max), max(_max, r_max));
-		} else
-			return ValueRange.init;
+			return from4Numbers(_min * rhs._min, _min * rhs._max, _max * rhs._min, _max * rhs._max);
+		} else static if (op == "/") { // FIXME this is inacurrate but close enough, for now.
+			return from4Numbers(_min / rhs._min, _min / rhs._max, _max / rhs._min, _max / rhs._max);
+		} else {
+			assert(0,"Operator " ~ to!string(e.op) ~ "is not supported by VRP right now");
+		}
 	}
 	unittest {
-		import std.stdio;
 		assert(ValueRange(0, 255) - ValueRange(128, 128) == ValueRange(-128, 127));
 		assert(ValueRange(3, 3) + ValueRange(-5, 2) == ValueRange(-2, 5));
-//		assert(ValueRange(-7, 3) % ValueRange(-5, 2) == ValueRange(-4, 3));
+		assert(ValueRange(2, 4) * ValueRange(-2, 1) == ValueRange(-8, 4));
+		assert(ValueRange(4, 8) / ValueRange(-1, 2) == ValueRange(-8, 4));
 	}
-
-	ValueRange merge(ValueRange rhs) {
-		import std.algorithm : max, min;
-		return ValueRange(min(_min, rhs._min), max(_max, rhs._max));
-	}
-
-	static ValueRange rangeOf(TypeKind t) {
-		if (t == TypeKind.Bool) {
-			return ValueRange(bool.min,bool.max);
-		} else if (t == TypeKind.Ubyte) {
-			return ValueRange(ubyte.min, ubyte.max);
-		} else if (t == TypeKind.Ushort) {
-			return ValueRange(ushort.min, ushort.max);
-		} else if (t == TypeKind.Uint) {
-			return ValueRange(uint.min, uint.max);
-		} else if (t == TypeKind.Byte) {
-			return ValueRange(byte.min, byte.max);
-		} else if (t == TypeKind.Short) {
-			return ValueRange(short.min, short.max);
-		} else if (t == TypeKind.Int) {
-			return ValueRange(int.min, int.max);
-		} else
-			return ValueRange.init;
-	}
+	
 }
 
 struct ValueRangeVisitor {
+	import d.location;
+	
 	SemanticPass pass;
-
-	this(SemanticPass pass)
-	{
+	
+	this(SemanticPass pass) {
 		this.pass = pass;
 	}
-
+	
+//	ValueRange visit(QualType qt) {
+//		return this.dispatch(qt.type);
+//		import d.semantic.identifier;
+//		import d.context;
+//		
+//		auto sr = SymbolResolver!(delegate long (e) {
+//			static if(is(typeof(e) : IntegerLiteral!true) || is(typeof(e) : IntegerLiteral!false) || is(typeof(e) : BooleanLiteral)) {
+//				return e.value;
+//			}
+//			assert(0,"Unreachable");
+//		})(pass);
+//		
+//		if (cast(BuiltinType) qt.type) {
+//			auto min = sr.resolveInType(loc, qt, BuiltinName!"min");
+//			auto max = sr.resolveInType(loc, qt, BuiltinName!"max");
+//			return ValueRange(min, max);
+//		}
+//		assert(0, "ValueRange not supported for " ~ qt.toString(pass.context));
+//	}
+//	
 	ValueRange visit(Expression e) {
-		import d.exception;
-		return this.dispatch!(function ValueRange(Expression e) {
-	      return ValueRange.init;
-		})(e);
+		return this.dispatch(e);
 	}
-
-	ValueRange visit(VariableExpression e) {
-		if (auto bType = cast(BuiltinType) peelAlias(e.type).type) {
-			return ValueRange.rangeOf(bType.kind);
-		} else {
-			return ValueRange.init;
+	
+	ValueRange visit(TypeKind t) {
+			if (t == TypeKind.Bool) {
+				return ValueRange(bool.min,bool.max);
+			} else if (t == TypeKind.Ubyte) {
+				return ValueRange(ubyte.min, ubyte.max);
+			} else if (t == TypeKind.Ushort) {
+				return ValueRange(ushort.min, ushort.max);
+			} else if (t == TypeKind.Uint) {
+				return ValueRange(uint.min, uint.max);
+			} else if (t == TypeKind.Byte) {
+				return ValueRange(byte.min, byte.max);
+			} else if (t == TypeKind.Short) {
+				return ValueRange(short.min, short.max);
+			} else if (t == TypeKind.Int) {
+				return ValueRange(int.min, int.max);
+			} else {
+				assert(0, "VRP not suppoted for this expression");
+			}
 		}
+	
+	ValueRange visit(VariableExpression e) {
+		if (auto bt = cast (BuiltinType)peelAlias(e.type).type) {
+			return visit(bt.kind);
+		}
+		assert(0, "VRP fails");
 	}
-
+	
+	ValueRange visit(UnaryExpression e) {
+		ValueRange rhs = visit(e.expr);
+		switch (e.op) with (UnaryOp) {
+			case Minus :
+				return ValueRange(-rhs._max, -rhs._min);
+			default : 
+				assert(0,"Operator " ~ to!string(e.op) ~ "is not supported by VRP right now");
+		}
+		assert(0);
+	}
+	
 	ValueRange visit(BinaryExpression e) {
 		ValueRange lhs = visit(e.lhs);
 		ValueRange rhs = visit(e.rhs);
-		switch (e.op)
-			with (BinaryOp) {
-			case AddAssign :
+		switch (e.op) with (BinaryOp) {
 			case Add :
 				return lhs + rhs;
-			case SubAssign :
 			case Sub :
 				return lhs - rhs;
 			case Assign :
 				return rhs;
 			default :
-				return ValueRange.init;
-			}
+				assert(0,"Operator " ~ to!string(e.op) ~ "is not supported by VRP right now");
+		}
+		assert(0);
 	}
-
+	
 	ValueRange visit(CastExpression e) {
 		return visit(e.expr);
 	}
-
+	
 	ValueRange visit(FieldExpression e) {
 		return visit(e.expr);
 	}
-
+	
+	ValueRange visit(BooleanLiteral e) {
+		return ValueRange(e.value, e.value);
+	}
+	
 	ValueRange visit(CharacterLiteral e) {
 		return ValueRange(cast(int) e.value[0], cast(int) e.value[0]);
 	}
-
+	
 	ValueRange visit(IntegerLiteral!false e) {
 		return ValueRange(e.value, e.value);
 	}
-
+	
 	ValueRange visit(IntegerLiteral!true e) {
 		return ValueRange(e.value, e.value);
-	}
-
-	unittest {
-		import d.location;
-		auto il = new IntegerLiteral!false(Location.init, 1, TypeKind.Int);
-		assert(ValueRangeVisitor().visit(il).isInRangeOf(TypeKind.Byte));
-		assert(ValueRangeVisitor().visit(il).isInRangeOf(TypeKind.Bool));
-		assert(ValueRangeVisitor().visit(new BinaryExpression(Location.init, getBuiltin(TypeKind.Int), BinaryOp.Sub, new IntegerLiteral!false(Location.init, 255, TypeKind.Uint), new IntegerLiteral!false(Location.init, 128, TypeKind.Int))).isInRangeOf(TypeKind.Byte));
-		assert(ValueRange.rangeOf(TypeKind.Ubyte).isInRangeOf(TypeKind.Short));
-		assert(!(ValueRange.rangeOf(TypeKind.Short).isInRangeOf(TypeKind.Byte)));
 	}
 }
 
