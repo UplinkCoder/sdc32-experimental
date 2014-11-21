@@ -64,7 +64,7 @@ struct Tester {
 		Result[] results;
 		foreach (test;tests) {
 		
-			auto sdc = new SDC(test.name ~ ".d", conf, 0, ["D_LP64"]);
+			auto sdc = new SDC(test.name ~ ".d", conf, "", ["D_LP64"]);
 
 			sdc.includePath ~= "tests";
 			auto r = Result(test.number, false, true);

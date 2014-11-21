@@ -64,7 +64,7 @@ final class CodeGenPass {
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
 	
-	this(Context context, string modulename, uint bitWidth) {
+	this(Context context, string name, uint bitWidth) {
 		this.context	= context;
 		this.bitWidth   = bitWidth; 
 		
@@ -77,7 +77,7 @@ final class CodeGenPass {
 		
 		llvmCtx = LLVMContextCreate();
 		builder = LLVMCreateBuilderInContext(llvmCtx);
-		dmodule = LLVMModuleCreateWithNameInContext(modulename.toStringz(), llvmCtx);
+		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), llvmCtx);
 		
 		LLVMValueRef[3] branch_metadata;
 		
@@ -121,10 +121,6 @@ final class CodeGenPass {
 		return symbolGen.genCached(f);
 	}
 	
-	auto visit(Parameter p) {
-		return symbolGen.visit(p);
-	}
-	
 	auto getTypeInfo(TypeSymbol s) {
 		return typeGen.getTypeInfo(s);
 	}
@@ -147,7 +143,7 @@ final class CodeGenPass {
 	
 
 	LLVMTypeRef getPtrTypeInContext(LLVMContextRef C) {
-		return LLVMIntTypeInContext(C,bitWidth);
+		return LLVMIntTypeInContext(C, bitWidth);
 	}
 
 	auto buildClassType(Class c) {

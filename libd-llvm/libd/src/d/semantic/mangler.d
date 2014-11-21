@@ -181,21 +181,7 @@ struct ValueMangler {
 	string visit(BooleanLiteral e) {
 		return to!string(cast(ubyte) e.value);
 	}
-
-	string visit(StringLiteral e) {
-		import std.string;
-		auto ret = "a";
-		ret.reserve(e.value.length * 2 +  (e.value.length < 100) ? 4 : 8);
-		ret ~= to!string(e.value.length);
-		ret ~= '_';
-		for(size_t i = 0; i < e.value.length; i++) {
-			ubyte c = e.value[i];
-			ret ~= format("%x", c >> 4);
-			ret ~= format("%x", c & 0x0F);
-		}
-		return ret;
-	}
-
+	
 	string visit(IntegerLiteral!true e) {
 		return e.value >= 0
 			? e.value.to!string()

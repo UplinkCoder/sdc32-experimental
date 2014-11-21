@@ -35,14 +35,6 @@ struct ExpressionGen {
 		auto aog = AddressOfGen(pass);
 		return aog.visit(e);
 	}
-
-/*	LLVMValueRef visit(ArrayLiteral al) {
-		LLVMValueRef[] vals;
-		foreach (val;al.values) {
-			vals~=visit(val);
-		}
-		return LLVMConstArray(pass.visit(al.values[0].type), vals.ptr, al.values.length); 
-	}*/
 	
 	LLVMValueRef visit(BooleanLiteral bl) {
 		return LLVMConstInt(pass.visit(bl.type), bl.value, false);
@@ -118,7 +110,7 @@ struct ExpressionGen {
 	
 	private LLVMValueRef handleComparaison(BinaryExpression e, LLVMIntPredicate predicate) {
 		static LLVMIntPredicate workaround;
-
+		
 		auto oldWorkaround = workaround;
 		scope(exit) workaround = oldWorkaround;
 		
@@ -151,11 +143,11 @@ struct ExpressionGen {
 		auto fun = LLVMGetBasicBlockParent(lhsBB);
 		
 		static if(shortCircuitOnTrue) {
-			auto rhsBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "or_short_circuit");
+			auto rhsBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "or_rhs");
 			auto mergeBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "or_merge");
 			LLVMBuildCondBr(builder, lhs, mergeBB, rhsBB);
 		} else {
-			auto rhsBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "and_short_circuit");
+			auto rhsBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "and_rhs");
 			auto mergeBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "and_merge");
 			LLVMBuildCondBr(builder, lhs, rhsBB, mergeBB);
 		}
@@ -167,8 +159,8 @@ struct ExpressionGen {
 		
 		// Conclude that block.
 		LLVMBuildBr(builder, mergeBB);
-
-		// Codegen of then can change the current block, so we put everything in order.
+		
+		// Codegen of lhs can change the current block, so we put everything in order.
 		rhsBB = LLVMGetInsertBlock(builder);
 		LLVMMoveBasicBlockAfter(mergeBB, rhsBB);
 		LLVMPositionBuilderAtEnd(builder, mergeBB);
@@ -376,46 +368,47 @@ struct ExpressionGen {
 
 	LLVMValueRef visit(TernaryExpression e) {
 		auto cond = visit(e.condition);
+		
 		auto condBB  = LLVMGetInsertBlock(builder);
 		auto fun = LLVMGetBasicBlockParent(condBB);
 		
-		auto ifTrueBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "ifTrue");
-		auto ifFalseBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "ifFalse");
-		auto resultBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "result");
+		auto lhsBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "ternary_lhs");
+		auto rhsBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "ternary_rhs");
+		auto mergeBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "ternary_merge");
 		
-		LLVMBuildCondBr(builder, cond, ifTrueBB, ifFalseBB);
+		LLVMBuildCondBr(builder, cond, lhsBB, rhsBB);
 		
-		// Emit ifTrue
-		LLVMPositionBuilderAtEnd(builder, ifTrueBB);
-		auto ifTrue = visit(e.ifTrue);
+		// Emit lhs
+		LLVMPositionBuilderAtEnd(builder, lhsBB);
+		auto lhs = visit(e.lhs);
 		// Conclude that block.
-		LLVMBuildBr(builder, resultBB);
+		LLVMBuildBr(builder, mergeBB);
 		
-		// Codegen of then can change the current block, so we put everything in order.
-		ifTrueBB = LLVMGetInsertBlock(builder);
-		LLVMMoveBasicBlockAfter(ifFalseBB, ifTrueBB);
+		// Codegen of lhs can change the current block, so we put everything in order.
+		lhsBB = LLVMGetInsertBlock(builder);
+		LLVMMoveBasicBlockAfter(lhsBB, rhsBB);
 		
-		// Emit ifFalse
-		LLVMPositionBuilderAtEnd(builder, ifFalseBB);
-		auto ifFalse = visit(e.ifFalse);
+		// Emit rhs
+		LLVMPositionBuilderAtEnd(builder, rhsBB);
+		auto rhs = visit(e.rhs);
 		// Conclude that block.
-		LLVMBuildBr(builder, resultBB);
+		LLVMBuildBr(builder, mergeBB);
 		
-		// Codegen of then can change the current block, so we put everything in order.
-		ifFalseBB = LLVMGetInsertBlock(builder);
-		LLVMMoveBasicBlockAfter(resultBB, ifFalseBB);
+		// Codegen of rhs can change the current block, so we put everything in order.
+		rhsBB = LLVMGetInsertBlock(builder);
+		LLVMMoveBasicBlockAfter(mergeBB, rhsBB);
 		
 		// Generate phi to get the result.
-		LLVMPositionBuilderAtEnd(builder, resultBB);
+		LLVMPositionBuilderAtEnd(builder, mergeBB);
 		auto phiNode = LLVMBuildPhi(builder, pass.visit(e.type), "");
 		
 		LLVMValueRef[2] incomingValues;
-		incomingValues[0] = ifTrue;
-		incomingValues[1] = ifFalse;
+		incomingValues[0] = lhs;
+		incomingValues[1] = rhs;
 		
 		LLVMBasicBlockRef[2] incomingBlocks;
-		incomingBlocks[0] = ifTrueBB;
-		incomingBlocks[1] = ifFalseBB;
+		incomingBlocks[0] = lhsBB;
+		incomingBlocks[1] = rhsBB;
 		
 		LLVMAddIncoming(phiNode, incomingValues.ptr, incomingBlocks.ptr, incomingValues.length);
 		
@@ -442,10 +435,6 @@ struct ExpressionGen {
 		}
 		
 		return LLVMBuildExtractValue(builder, visit(e.expr), e.field.index, "");
-	}
-	
-	LLVMValueRef visit(ParameterExpression e) {
-		return LLVMBuildLoad(builder, addressOf(e), "");
 	}
 	
 	LLVMValueRef visit(FunctionExpression e) {
@@ -477,14 +466,13 @@ struct ExpressionGen {
 		
 		return dg;
 	}
-
+	
 	LLVMValueRef visit(NewExpression e) {
 		auto ctor = visit(e.ctor);
 		auto args = e.args.map!(a => visit(a)).array();
 		
 		auto type = pass.visit(e.type);
-		LLVMValueRef size =  LLVMConstTruncOrBitCast(LLVMSizeOf(type),getPtrTypeInContext(llvmCtx));
-
+		LLVMValueRef size =  LLVMConstTruncOrBitCast(LLVMSizeOf(type), getPtrTypeInContext(llvmCtx));
 		auto alloc = buildCall(druntimeGen.getAllocMemory(), [size]);
 		auto ptr = LLVMBuildPointerCast(builder, alloc, type, "");
 		LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
@@ -525,7 +513,7 @@ struct ExpressionGen {
 		// Emit bound check fail code.
 		LLVMPositionBuilderAtEnd(builder, failBB);
 		
-		LLVMValueRef args[2];
+		LLVMValueRef[2] args;
 		args[0] = buildDString(location.source.filename);
 		args[1] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), location.line, false);
 		
@@ -755,7 +743,19 @@ struct ExpressionGen {
 	
 	LLVMValueRef visit(CompileTimeTupleExpression e) {
 		auto fields = e.values.map!(v => visit(v)).array();
-		return LLVMConstNamedStruct(pass.visit(e.type), fields.ptr, cast(uint) fields.length);
+		auto t = pass.visit(e.type);
+		switch(LLVMGetTypeKind(t)) with(LLVMTypeKind) {
+			case Struct :
+				return LLVMConstNamedStruct(t, fields.ptr, cast(uint) fields.length);
+			
+			case Array :
+				return LLVMConstArray(LLVMGetElementType(t), fields.ptr, cast(uint) fields.length);
+			
+			default :
+				break;
+		}
+		
+		assert(0, "Invalid type tuple.");
 	}
 	
 	LLVMValueRef visit(VoidInitializer v) {
@@ -779,7 +779,7 @@ struct ExpressionGen {
 		// Emit assert call
 		LLVMPositionBuilderAtEnd(builder, failBB);
 		
-		LLVMValueRef args[3];
+		LLVMValueRef[3] args;
 		args[1] = buildDString(e.location.source.filename);
 		args[2] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), e.location.line, false);
 		
@@ -814,7 +814,7 @@ struct ExpressionGen {
 			return getTypeInfo(c);
 		}
 		
-		assert(0, "getTypeid for "~typeid(peelAlias(t).type).toString~" Not implemented");
+		assert(0, "Not implemented");
 	}
 	
 	LLVMValueRef visit(StaticTypeidExpression e) {
@@ -834,23 +834,16 @@ struct AddressOfGen {
 	this(CodeGenPass pass) {
 		this.pass = pass;
 	}
-	LLVMValueRef visit(StringLiteral s) {
-		assert(0,"String Literal Really");
-	}
-
+	
 	LLVMValueRef visit(Expression e) {
 		return this.dispatch(e);
 	}
-
+	
 	LLVMValueRef visit(VariableExpression e) {
 		import d.ast.base;
 		assert(e.var.storage != Storage.Enum, "enum have no address.");
 		
 		return pass.visit(e.var);
-	}
-
-	LLVMValueRef visit(TernaryExpression e) {
-		throw new CompileException(e.location, "TernaryExpression as l-value is not supported.");
 	}
 	
 	LLVMValueRef visit(FieldExpression e) {
@@ -877,10 +870,6 @@ struct AddressOfGen {
 		}
 		
 		return LLVMBuildStructGEP(builder, ptr, e.field.index, "");
-	}
-	
-	LLVMValueRef visit(ParameterExpression e) {
-		return pass.visit(e.param);
 	}
 	
 	LLVMValueRef visit(ThisExpression e) {
@@ -965,7 +954,7 @@ struct AddressOfGen {
 			);
 			
 			eg.genBoundCheck(location, condition);
-			
+
 			LLVMValueRef indices[2];
 			indices[0] = LLVMConstInt(getPtrTypeInContext(llvmCtx), 0, false);
 			indices[1] = i;

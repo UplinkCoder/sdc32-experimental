@@ -21,7 +21,6 @@ extern(C) void _d_assert_msg(string, string, int);
 extern(C) void _d_arraybounds(string, int);
 extern(C) void* _d_allocmemory(size_t);
 
-
 final class LLVMEvaluator : Evaluator {
 	private CodeGenPass codeGen;
 	

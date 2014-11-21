@@ -107,7 +107,6 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			return new AstForStatement(location, init, condition, increment, statement);
 		
 		case Foreach, ForeachReverse :
-			bool reverse = (trange.front.type == ForeachReverse);
 			trange.popFront();
 			trange.match(OpenParen);
 			
@@ -118,7 +117,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 				QualAstType type;
 				switch(trange.front.type) {
 					case Ref :
-					lookahead.popFront();
+						lookahead.popFront();
 						
 						if(lookahead.front.type == Identifier) goto case Identifier;
 						
@@ -146,8 +145,10 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 				elementLocation.spanTo(trange.front.location);
 				
 				trange.match(Identifier);
+	
+				assert(0, "foreach can't be parsed yet");
 
-				return new VariableDeclaration(elementLocation, type, name, null);
+				//return new VariableDeclaration(elementLocation, type, name, initExpression);
 			}
 			
 			VariableDeclaration[] tupleElements = [parseForeachListElement()];
@@ -169,7 +170,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			auto statement = trange.parseStatement();
 			location.spanTo(statement.location);
 			
-			return new ForeachStatement(location, reverse, tupleElements, iterrated, statement);
+			return new ForeachStatement(location, tupleElements, iterrated, statement);
 		
 		case Return :
 			trange.popFront();

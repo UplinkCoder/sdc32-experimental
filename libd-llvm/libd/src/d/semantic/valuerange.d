@@ -35,25 +35,18 @@ struct ValueRange {
 	}
 	
 	ValueRange opBinary(string op)(ValueRange rhs) {
-		import std.algorithm : max, min;
-		import std.math : abs;
 		static if (op == "+") {
 			return ValueRange(_min + rhs._min, _max + rhs._max);
 		} else static if (op == "-") {
 			return ValueRange(_min - rhs._max, _max - rhs._min);
-		} else static if (op == "*") {
-			return from4Numbers(_min * rhs._min, _min * rhs._max, _max * rhs._min, _max * rhs._max);
-		} else static if (op == "/") { // FIXME this is inacurrate but close enough, for now.
-			return from4Numbers(_min / rhs._min, _min / rhs._max, _max / rhs._min, _max / rhs._max);
 		} else {
-			assert(0,"Operator " ~ to!string(e.op) ~ "is not supported by VRP right now");
+			assert(0,"Operator " ~ to!string(e.op) ~ " is not supported by VRP right now");
 		}
 	}
+
 	unittest {
 		assert(ValueRange(0, 255) - ValueRange(128, 128) == ValueRange(-128, 127));
 		assert(ValueRange(3, 3) + ValueRange(-5, 2) == ValueRange(-2, 5));
-		assert(ValueRange(2, 4) * ValueRange(-2, 1) == ValueRange(-8, 4));
-		assert(ValueRange(4, 8) / ValueRange(-1, 2) == ValueRange(-8, 4));
 	}
 	
 }
@@ -66,56 +59,21 @@ struct ValueRangeVisitor {
 	this(SemanticPass pass) {
 		this.pass = pass;
 	}
+
+	ValueRange visit(BuiltinType bt) {
+		return ValueRange(getMin(bt), getMax(bt));
+	}
 	
-//	ValueRange visit(QualType qt) {
-//		return this.dispatch(qt.type);
-//		import d.semantic.identifier;
-//		import d.context;
-//		
-//		auto sr = SymbolResolver!(delegate long (e) {
-//			static if(is(typeof(e) : IntegerLiteral!true) || is(typeof(e) : IntegerLiteral!false) || is(typeof(e) : BooleanLiteral)) {
-//				return e.value;
-//			}
-//			assert(0,"Unreachable");
-//		})(pass);
-//		
-//		if (cast(BuiltinType) qt.type) {
-//			auto min = sr.resolveInType(loc, qt, BuiltinName!"min");
-//			auto max = sr.resolveInType(loc, qt, BuiltinName!"max");
-//			return ValueRange(min, max);
-//		}
-//		assert(0, "ValueRange not supported for " ~ qt.toString(pass.context));
-//	}
-//	
 	ValueRange visit(Expression e) {
 		return this.dispatch(e);
 	}
 	
-	ValueRange visit(TypeKind t) {
-			if (t == TypeKind.Bool) {
-				return ValueRange(bool.min,bool.max);
-			} else if (t == TypeKind.Ubyte) {
-				return ValueRange(ubyte.min, ubyte.max);
-			} else if (t == TypeKind.Ushort) {
-				return ValueRange(ushort.min, ushort.max);
-			} else if (t == TypeKind.Uint) {
-				return ValueRange(uint.min, uint.max);
-			} else if (t == TypeKind.Byte) {
-				return ValueRange(byte.min, byte.max);
-			} else if (t == TypeKind.Short) {
-				return ValueRange(short.min, short.max);
-			} else if (t == TypeKind.Int) {
-				return ValueRange(int.min, int.max);
-			} else {
-				assert(0, "VRP not suppoted for this expression");
-			}
-		}
+	ValueRange visit(TypeKind k) {
+		return visit(new BuiltinType(k));
+	}
 	
 	ValueRange visit(VariableExpression e) {
-		if (auto bt = cast (BuiltinType)peelAlias(e.type).type) {
-			return visit(bt.kind);
-		}
-		assert(0, "VRP fails");
+		return this.dispatch(peelAlias(e.type).type);
 	}
 	
 	ValueRange visit(UnaryExpression e) {
@@ -124,7 +82,7 @@ struct ValueRangeVisitor {
 			case Minus :
 				return ValueRange(-rhs._max, -rhs._min);
 			default : 
-				assert(0,"Operator " ~ to!string(e.op) ~ "is not supported by VRP right now");
+				assert(0, "Operator " ~ to!string(e.op) ~ " is not supported by VRP right now");
 		}
 		assert(0);
 	}
@@ -140,7 +98,8 @@ struct ValueRangeVisitor {
 			case Assign :
 				return rhs;
 			default :
-				assert(0,"Operator " ~ to!string(e.op) ~ "is not supported by VRP right now");
+				assert(0, "Operator " ~ to!string(e.op) ~ " is not supported by VRP right now");
+
 		}
 		assert(0);
 	}

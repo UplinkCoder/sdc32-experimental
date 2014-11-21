@@ -143,6 +143,8 @@ struct Identifiable {
 	// bitfield cause infinite recursion now.
 }
 
+// XXX: probably a "feature" this can't be passed as alias this if private.
+public
 Identifiable identifiableHandler(T)(T t) {
 	return Identifiable(t);
 }
@@ -283,18 +285,9 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 	}
 	
 	Ret visit(IdentifierBracketIdentifier i) {
-		return SymbolResolver!identifiableHandler(pass).visit(i.index).apply!(delegate Ret(identified) {
-			static if(is(typeof(identified) : Expression)) {
-				import d.ast.expression:IdentifierExpression;
-				return visit(new IdentifierBracketExpression(i.location, i.indexed, new IdentifierExpression(i.index)));
-			} else static if (is(typeof(identified) : QualType)) {
-				assert(0, "can't resolve aaType yet");
-			} else {
-				assert(0,i.toString(pass.context) ~ " is unresolveble.");
-			}
-		})();
+		assert(0, "can't resolve aaType yet");
 	}
-
+	
 	Ret visit(IdentifierBracketExpression i) {
 		return SymbolResolver!identifiableHandler(pass).visit(i.indexed).apply!(delegate Ret(identified) {
 			static if(is(typeof(identified) : QualType)) {
@@ -376,15 +369,6 @@ struct IdentifierPostProcessor(alias handler, bool asAlias) {
 		}
 	}
 	
-	Ret visit(Parameter p) {
-		static if(asAlias) {
-			return handler(p);
-		} else {
-			scheduler.require(p, Step.Signed);
-			return handler(new ParameterExpression(location, p));
-		}
-	}
-	
 	Ret visit(Field f) {
 		scheduler.require(f, Step.Signed);
 		return handler(new FieldExpression(location, new ThisExpression(location, QualType(thisType.type)), f));
@@ -406,7 +390,7 @@ struct IdentifierPostProcessor(alias handler, bool asAlias) {
 		
 		return handler(s);
 	}
-
+	
 	Ret visit(SymbolAlias s) {
 		scheduler.require(s, Step.Signed);
 		return visit(s.symbol);
@@ -492,51 +476,30 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 			static if(is(T : PointerType)) {
 				expr = new UnaryExpression(expr.location, t.pointed, UnaryOp.Dereference, expr);
 				return r.visit(t.pointed);
-			} else {
-				static if (is(T : StructType)) {
-					auto aliasThis = t.dstruct.dscope.aliasThis;
-				} else static if (is(T : ClassType)) {
-					auto aliasThis = t.dclass.dscope.aliasThis;
+			} else static if (is(T : StructType) || is(T : ClassType)) {
+				import d.semantic.aliasthis;
+				auto candidates = AliasThisResolver!identifiableHandler(pass).resolve(expr, t);
+				
+				Ret[] results;
+				foreach(c; candidates) {
+					// TODO: refactor so we do not throw.
+					try {
+						results ~= SymbolResolver!identifiableHandler(pass)
+							.resolveInIdentifiable(location, c, name)
+							.apply!handler();
+					} catch(CompileException e) {
+						continue;
+					}
 				}
 				
-				static if(is(typeof(aliasThis))) {
-					auto edir = ExpressionDotIdentifierResolver!identifiableHandler(pass, location, expr);
-					
-					auto oldBuildErrorNode = pass.buildErrorNode;
-					scope(exit) pass.buildErrorNode = oldBuildErrorNode;
-					
-					pass.buildErrorNode = true;
+				if (results.length == 1) {
+					return results[0];
+				} else if (results.length > 1) {
+					assert(0, "WTF am I supposed to do here ?");
+				}
 
-					Identifiable[] candidates;
-					foreach (n; aliasThis) {
-						// TODO: refactor so we do not throw.
-						try {
-							candidates ~= edir.resolve(n);
-						} catch(CompileException e) {
-							continue;
-						}
-					}
-					
-					// XXX: AliasResolver ???
-					auto sr = SymbolResolver!identifiableHandler(pass);
-					
-					Ret[] results;
-					foreach(c; candidates) {
-						// TODO: refactor so we do not throw.
-						try {
-							results ~= sr.resolveInIdentifiable(location, c, name).apply!handler();
-						} catch(CompileException e) {
-							continue;
-						}
-					}
-					
-					if (results.length == 1) {
-						return results[0];
-					} else if (results.length > 1) {
-						assert(0, "WTF am I supposed to do here ?");
-					}
-				}
-				
+				return r.bailoutDefault(type.type);
+			} else {
 				return r.bailoutDefault(type.type);
 			}
 		})(pass, location, name).visit(type);
@@ -628,7 +591,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 	Ret bailoutDefault(Type t) {
 		if(name == BuiltinName!"init") {
 			import d.semantic.defaultinitializer;
-			return handler(InitBuilder(pass).visit(location, QualType(t)));
+			return handler(InitBuilder(pass, location).visit(QualType(t)));
 		} else if(name == BuiltinName!"sizeof") {
 			import d.semantic.sizeof;
 			return handler(new IntegerLiteral!false(location, SizeofVisitor(pass).visit(t), TypeKind.Uint));
@@ -648,20 +611,47 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 			auto s = new IntegerLiteral!false(location, t.size, sizeT.kind);
 			return handler(s);
 		}
+
 		return bailout(t);
 	}
-	
+
+	Ret visit(BuiltinType t) {
+		if (name == BuiltinName!"max") {
+			if (t.kind == TypeKind.Bool) {
+				return handler(new BooleanLiteral(location, true));
+			} else if (isIntegral(t.kind)) {
+				if (isSigned(t.kind)) {
+					return handler(new IntegerLiteral!true(location, getMax(t), t.kind));
+				} else {
+					return handler(new IntegerLiteral!false(location, getMax(t), t.kind));
+				}
+			}
+		} else if (name == BuiltinName!"min") {
+			if (t.kind == TypeKind.Bool) {
+				return handler(new BooleanLiteral(location, false));
+			} else if (isIntegral(t.kind)) {
+				if (isSigned(t.kind)) {
+					return handler(new IntegerLiteral!true(location, getMin(t), t.kind));
+				} else {
+					return handler(new IntegerLiteral!false(location, getMin(t), t.kind));
+				}
+			}
+		}
+		
+		return bailout(t);
+	}
+
 	Ret visit(SliceType t) {
 		if(name == BuiltinName!"length") {
 			// FIXME: pass explicit location.
-			auto location = Location.init;
+			//auto location = Location.init;
 			auto lt = pass.object.getSizeT().type;
 			auto s = new Field(location, 0, lt, BuiltinName!"length", null);
 			s.step = Step.Processed;
 			return handler(s);
 		} else if(name == BuiltinName!"ptr") {
 			// FIXME: pass explicit location.
-			auto location = Location.init;
+			//auto location = Location.init;
 			auto pt = QualType(new PointerType(t.sliced));
 			auto s = new Field(location, 1, pt, BuiltinName!"ptr", null);
 			s.step = Step.Processed;

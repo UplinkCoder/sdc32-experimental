@@ -8,6 +8,7 @@ import d.ast.dmodule;
 import d.exception;
 
 import sdc.conf;
+//import d.llvm.backend:BackendParams;
 import sdc.sdc;
 import sdc.terminal;
 
@@ -25,7 +26,8 @@ int main(string[] args) {
 	}
 	
 	auto conf = buildConf();
-	
+//	BackendParams beParams;
+
 	string[] includePath;
 	string[] libPath;
 	string[] versions;
@@ -96,7 +98,7 @@ int main(string[] args) {
 		}
 	}
 	
-	auto sdc = new SDC(files[0], conf, optLevel, versions);
+	auto sdc = new SDC(files[0], conf, "", versions);
 	import std.stdio;
 	writeln(files);
 	try {

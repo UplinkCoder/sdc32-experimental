@@ -15,6 +15,9 @@ install:
 
 
 script:
+- dub fetch doveralls
+- dub -b cov
 - make LLVM_CONFIG=llvm-config-3.4
-- bin/sdc --test
-
+- cp bin/sdc.conf ../
+- ./sdc --test
+- COVERALLS_REPO_TOKEN=Tle1nyVNDhgDukE7V1r0hsMVRGDcKnRW0 dub run doveralls

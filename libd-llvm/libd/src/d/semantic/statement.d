@@ -103,8 +103,9 @@ struct StatementVisitor {
 	
 	void visit(AstIfStatement s) {
 		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
 		
-		auto condition = buildExplicitCast(pass, s.condition.location, getBuiltin(TypeKind.Bool), ExpressionVisitor(pass).visit(s.condition));
+		auto condition = buildExplicitCast(pass, s.condition.location, getBuiltin(TypeKind.Bool), ev.visit(s.condition));
 		auto then = autoBlock(s.then);
 		
 		Statement elseStatement;
@@ -166,87 +167,7 @@ struct StatementVisitor {
 		
 		flattenedStmts[$ - 1] = new ForStatement(f.location, initialize, condition, increment, statement);
 	}
-
-/+	void visit(ForeachStatement fr) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		currentScope = (cast(NestedScope) oldScope).clone();
-
-		auto getVariableExpressoionFromDeclaration(VariableDeclaration vd,QualType t) {
-			import d.semantic.defaultinitializer;
-			import d.semantic.declaration;
-
-			vd.value = InitBuilder(pass).visit(vd.location, t);
-			auto syms = DeclarationVisitor(pass).flatten(vd);
-			assert(syms.length == 1 && syms[] !is null, "VariableDecl in foreach has more then one Symbol?!?!");
-			auto v = cast(Variable) syms[0];
-			v.type = t;
-			return new VariableExpression(vd.location, v);
-		}
-
-		import d.semantic.expression;
-		import d.semantic.defaultinitializer;
-		import d.exception;
-		auto ev = ExpressionVisitor(pass);
-
-		auto expr = ev.visit(fr.iterrated);
-		QualType exprType = peelAlias(expr.type);
-
-		auto at = cast(ArrayType) exprType.type;  
-		auto st = cast(SliceType) exprType.type;
-		if (at||st) {
-			QualType elementType;
-			Expression size;
-			Expression inc;
-			Expression cmpr;
-			VariableExpression idx;
-			VariableExpression elem;
-
-			if (at) {
-				elementType = at.elementType;
-			} else {
-				elementType = st.sliced;
-			}
-
-			import d.semantic.identifier;
-			size = SymbolResolver!(delegate Expression (e) {
-				static if(is(typeof(e) : Expression)) {
-					return buildImplicitCast(pass, e.location, pass.object.getSizeT().type, e);
-				}
-				assert(0,"Unreachable");
-			})(pass).resolveInExpression(expr.location, expr, BuiltinName!"length");
-			
-			if (fr.tupleElements.length == 2) {
-				idx = getVariableExpressoionFromDeclaration(fr.tupleElements[0], pass.object.getSizeT().type);
-				elem = getVariableExpressoionFromDeclaration(fr.tupleElements[1], elementType);
-			} else {
-				idx = new VariableExpression(fr.location, new Variable(fr.location, pass.object.getSizeT().type, BuiltinName!"", InitBuilder(pass).visit(fr.location, pass.object.getSizeT.type)));
-				elem = getVariableExpressoionFromDeclaration(fr.tupleElements[0], elementType);
-			}
-
-			/*	if (fr.reverse) {
-				idx.var.value = size.value;
-				import std.stdio;
-				writeln(idx.var.value.toString(context));
-				inc =  new UnaryExpression(fr.location, idx.type, UnaryOp.PostDec, idx);
-				cmpr = new BinaryExpression(fr.location, getBuiltin(TypeKind.Bool), BinaryOp.Less, new IntegerLiteral!false(fr.location, 0, TypeKind.Uint), idx);
-			} else { */
-				inc =  new UnaryExpression(fr.location, idx.type, UnaryOp.PostInc, idx);
-				cmpr = new BinaryExpression(fr.location, getBuiltin(TypeKind.Bool), BinaryOp.Less, idx, size);
-			//}
-
-			auto assign = new BinaryExpression(fr.location, elementType, BinaryOp.Assign, elem, new IndexExpression(fr.location, elementType, expr, [idx]));
-
-			Statement[] stmts = [new ExpressionStatement(assign)];
-			stmts ~= autoBlock(fr.statement);
-			Statement stmt = new BlockStatement(fr.statement.location, stmts);
-			// XXX: ExpressionStatement(idx) seens doubious if anything breaks bcause of this blame UplinkCoder
-			flattenedStmts ~= new ForStatement(fr.location, new ExpressionStatement(idx), cmpr, inc, stmt);		
-		} else {
-			throw new CompileException(expr.location, typeid(expr.type.type).toString~" is not supported as foreach argument (for now)");
-		}
-	}+/
-
+	
 	void visit(AstReturnStatement r) {
 		import d.semantic.expression;
 		auto ev = ExpressionVisitor(pass);

@@ -54,8 +54,8 @@ final class SemanticPass {
 	
 	ObjectReference object;
 	
-	//Name[] versions = [BuiltinName!"SDC", BuiltinName!"D_LP64"];
-	Name[] versions = [BuiltinName!"SDC"];
+	Name[] versions = [BuiltinName!"SDC", BuiltinName!"D_LP64"];
+	
 	static struct State {
 		Scope currentScope;
 		
@@ -81,26 +81,18 @@ final class SemanticPass {
 	Scheduler scheduler;
 	
 	alias Step = d.ir.symbol.Step;
-
-	this(Context context, Source delegate(Name[]) sourceFactory, string[] versions=[], Evaluator evaluator = null) {
+	
+	this(Context context, Evaluator evaluator, Source delegate(Name[]) sourceFactory) {
 		this.context	= context;
-				
+		this.evaluator	= evaluator;
+		
 		moduleVisitor		= new ModuleVisitor(this, sourceFactory);
 		scheduler			= new Scheduler(this);
-
-		foreach(ver;versions) {
-				this.versions ~= context.getName(ver);
-		}
-
+		
 		auto obj	= importModule([BuiltinName!"object"]);
 		object		= new ObjectReference(obj);
 		
 		scheduler.require(obj, Step.Populated);
-	}
-
-	void setEvaluator(Evaluator evaluator) {
-		assert(this.evaluator is null,"evaluator is a singleton can't be set twice!");
-		this.evaluator = evaluator;
 	}
 	
 	AstModule parse(S)(S source, Name[] packages) if(is(S : Source)) {
@@ -166,14 +158,8 @@ final class SemanticPass {
 		
 		auto type = main.type;
 		auto returnType = cast(BuiltinType) type.returnType.type;
-
-		import std.array;
-		import d.semantic.expression;
-		auto params = main.params.map!(p => new ParameterExpression(p.location,p)).array;
-		auto pTypes = main.params.map!(p => p.type).array;
+		auto call = new CallExpression(location, QualType(returnType), new FunctionExpression(location, main), []);
 		
-		auto call = new CallExpression(location, QualType(returnType), new FunctionExpression(location, main), cast (Expression[]) params);
-
 		Statement[] fbody;
 		if(returnType && returnType.kind == TypeKind.Void) {
 			fbody ~= new ExpressionStatement(call);
@@ -182,8 +168,8 @@ final class SemanticPass {
 			fbody ~= new ReturnStatement(location, call);
 		}
 		
-		type = new FunctionType(Linkage.C, ParamType(getBuiltin(TypeKind.Int), false), pTypes, false);
-		auto bootstrap = new Function(main.location, type, BuiltinName!"_Dmain", main.params, new BlockStatement(location, fbody));
+		type = new FunctionType(Linkage.C, ParamType(getBuiltin(TypeKind.Int), false), [], false);
+		auto bootstrap = new Function(main.location, type, BuiltinName!"_Dmain", [], new BlockStatement(location, fbody));
 		bootstrap.storage = Storage.Enum;
 		bootstrap.visibility = Visibility.Public;
 		bootstrap.step = Step.Processed;

@@ -55,6 +55,10 @@ class ErrorExpression : CompileTimeExpression {
 		
 		this.message = message;
 	}
+	
+	override string toString(Context) const {
+		return "__error__(" ~ message ~ ")";
+	}
 }
 
 /**
@@ -423,29 +427,6 @@ class MethodExpression : Expression {
 	
 	override string toString(Context ctx) const {
 		return expr.toString(ctx) ~ "." ~ method.name.toString(ctx);
-	}
-}
-
-/**
- * IdentifierExpression that as been resolved as a Parameter.
- * XXX: Deserve to be merged with VariableExpression somehow.
- */
-class ParameterExpression : Expression {
-	Parameter param;
-	
-	this(Location location, Parameter param) {
-		super(location, QualType(param.type.type, param.type.qualifier));
-		
-		this.param = param;
-	}
-	
-	override string toString(Context ctx) const {
-		return param.name.toString(ctx);
-	}
-	
-	@property
-	override bool isLvalue() const {
-		return true;
 	}
 }
 
