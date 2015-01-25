@@ -12,7 +12,6 @@ install:
 script:
 - dub fetch doveralls
 - dub -b cov
-- make LLVM_CONFIG=llvm-config-3.4
-- cp bin/sdc.conf ../
+- echo "{\"includePath\": [\"$(PWD)/libs\", \".\"],\"libPath\": [\"$(PWD)/lib\"],}" > ./sdc.conf
 - ./sdc --test
 - COVERALLS_REPO_TOKEN=Tle1nyVNDhgDukE7V1r0hsMVRGDcKnRW0 dub run doveralls
