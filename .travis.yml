@@ -12,6 +12,6 @@ install:
 script:
 - dub fetch doveralls
 - dub -b cov
-- echo "{\"includePath\": [\"$(PWD)/libs\", \".\"],\"libPath\": [\"$(PWD)/lib\"],}" > ./sdc.conf
+- echo "{\"includePath\": [\"$(pwd)/libs\", \".\"],\"libPath\": [\"$(pwd)/lib\"],}" > ./sdc.conf
 - ./sdc --test
 - COVERALLS_REPO_TOKEN=Tle1nyVNDhgDukE7V1r0hsMVRGDcKnRW0 dub run doveralls
