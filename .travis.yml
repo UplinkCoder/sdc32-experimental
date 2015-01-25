@@ -2,10 +2,7 @@ language: d
 #compiler:
 # - dmd
 install:
--# dmd
-- DUB_VER=0.9.22
-- DUB=dub-${DUB_VER}-linux-x86_64
-- sudo dpkg -i ${DUB} || true
+
 - sudo apt-get -y update || true
 - sudo apt-get -fy install llvm-3.4 || true
 
@@ -13,6 +10,5 @@ install:
 script:
 - dub fetch doveralls
 - dub -b cov
-- echo "{\"includePath\": [\"$(pwd)/libs\", \".\"],\"libPath\": [\"$(pwd)/lib\"],}" > ./sdc.conf
 - ./sdc --test
 - COVERALLS_REPO_TOKEN=Tle1nyVNDhgDukE7V1r0hsMVRGDcKnRW0 dub run doveralls
