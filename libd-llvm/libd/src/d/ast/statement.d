@@ -1,9 +1,11 @@
 module d.ast.statement;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
-import d.ast.type;
+
+import d.base.node;
+
+import d.context;
 
 class AstStatement : Node {
 	this(Location location) {
@@ -132,19 +134,42 @@ class ForStatement(E, S) : S  if(is(E : AstExpression) && is(S : AstStatement)){
 alias AstForStatement = ForStatement!(AstExpression, AstStatement);
 
 /**
- * for statements
+ * foreach statements
  */
 class ForeachStatement : AstStatement {
-	VariableDeclaration[] tupleElements;
-	AstExpression iterrated;
+	ParamDecl[] tupleElements;
+	AstExpression iterated;
 	AstStatement statement;
+	bool reverse;
 	
-	this(Location location, VariableDeclaration[] tupleElements, AstExpression iterrated, AstStatement statement) {
+	this(Location location, ParamDecl[] tupleElements, AstExpression iterated, AstStatement statement, bool reverse) {
 		super(location);
 		
 		this.tupleElements = tupleElements;
-		this.iterrated = iterrated;
+		this.iterated = iterated;
 		this.statement = statement;
+		this.reverse = reverse;
+	}
+}
+
+/**
+ * foreach statements
+ */
+class ForeachRangeStatement : AstStatement {
+	ParamDecl[] tupleElements;
+	AstExpression start;
+	AstExpression stop;
+	AstStatement statement;
+	bool reverse;
+	
+	this(Location location, ParamDecl[] tupleElements, AstExpression start, AstExpression stop, AstStatement statement, bool reverse) {
+		super(location);
+		
+		this.tupleElements = tupleElements;
+		this.start = start;
+		this.stop = stop;
+		this.statement = statement;
+		this.reverse = reverse;
 	}
 }
 

@@ -1,9 +1,13 @@
 module d.ir.dscope;
 
-import d.ast.base;
+import d.ir.symbol;
+
 import d.ast.conditional;
 
-import d.ir.symbol;
+import d.base.qualifier;
+
+import d.context;
+import d.location;
 
 // XXX: move this to a more apropriate place ?
 final class OverloadSet : Symbol {
@@ -262,7 +266,7 @@ class CapturingScope(S) : S  if(is(S : SymbolScope)){
 		}
 		
 		auto s = parent.search(name);
-		if (s !is null && typeid(s) is typeid(Variable) && !s.storage.isStatic) {
+		if (s !is null && typeid(s) is typeid(Variable) && !s.storage.isNonLocal) {
 			capture[() @trusted {
 				// Fast cast can be trusted in this case, we already did the check.
 				import util.fastcast;

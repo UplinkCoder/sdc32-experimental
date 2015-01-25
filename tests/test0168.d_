@@ -13,7 +13,7 @@ int main() {
 
 	bool[12] bs;
 	for(int i=0;i<bs.length;i++) {
-		(bs[0]) = i%2;
+		bs[0] = (cast(bool)(i%2));
 	}
 
 	int ret=18;

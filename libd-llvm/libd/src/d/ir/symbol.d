@@ -1,15 +1,13 @@
 module d.ir.symbol;
 
-import d.location;
-import d.node;
-
-// XXX: type qualifiers, refactor.
-import d.ast.base;
-
 import d.ir.dscope;
 import d.ir.expression;
 import d.ir.statement;
 import d.ir.type;
+
+import d.base.node;
+
+import d.context;
 
 enum Step {
 	Parsed,
@@ -28,10 +26,11 @@ class Symbol : Node {
 		Visibility, "visibility", 3,
 		Storage, "storage", 2,
 		bool, "isAbstract", 1,
+		bool, "isProperty", 1,
 		bool, "hasThis", 1,
 		bool, "hasContext", 1,
-		uint, "", 3,
 		Step, "step", 2,
+		uint, "", 2,
 	));
 	
 	this(Location location, Name name) {
@@ -84,11 +83,11 @@ class Package : Symbol {
 class Variable : ValueSymbol {
 	Expression value;
 	
-	QualType type;
+	Type type;
 	bool isRef;
 	bool isFinal;
 	
-	this(Location location, QualType type, Name name, Expression value = null, bool isRef = false, bool isFinal = false) {
+	this(Location location, Type type, Name name, Expression value = null, bool isRef = false, bool isFinal = false) {
 		super(location, name);
 		
 		this.type = type;
@@ -100,7 +99,7 @@ class Variable : ValueSymbol {
 	this(Location location, ParamType type, Name name, Expression value = null) {
 		super(location, name);
 		
-		this.type = QualType(type.type, type.qualifier);
+		this.type = type.getType();
 		this.value = value;
 		this.isRef = type.isRef;
 		this.isFinal = type.isFinal;
@@ -109,7 +108,7 @@ class Variable : ValueSymbol {
 final:
 	@property
 	auto paramType() {
-		return ParamType(type, isRef, isFinal);
+		return type.getParamType(isRef, isFinal);
 	}
 }
 
@@ -146,6 +145,21 @@ class TemplateParameter : Symbol {
 	}
 }
 
+/**
+ * Superclass for struct, class and interface.
+ */
+abstract class Aggregate : TypeSymbol {
+	Symbol[] members;
+	
+	AggregateScope dscope;
+	
+	this(Location location, Name name, Symbol[] members) {
+		super(location, name);
+		
+		this.members = members;
+	}
+}
+
 final:
 /**
  * An Error occured but a Symbol is expected.
@@ -178,7 +192,7 @@ class Module : Package {
 class Template : Symbol {
 	TemplateParameter[] parameters;
 	
-	QualType[] ifti;
+	Type[] ifti;
 	
 	import d.ast.declaration;
 	Declaration[] members;
@@ -199,14 +213,18 @@ class Template : Symbol {
  * Template type parameter
  */
 class TypeTemplateParameter : TemplateParameter {
-	QualType specialization;
-	QualType defaultValue;
+	Type specialization;
+	Type defaultValue;
 	
-	this(Location location, Name name, uint index, QualType specialization, QualType defaultValue) {
+	this(Location location, Name name, uint index, Type specialization, Type defaultValue) {
 		super(location, name, index);
 		
 		this.specialization = specialization;
 		this.defaultValue = defaultValue;
+	}
+	
+	override string toString(Context context) const {
+		return name.toString(context) ~ " : " ~ specialization.toString(context) ~ " = " ~ defaultValue.toString(context);
 	}
 }
 
@@ -214,9 +232,9 @@ class TypeTemplateParameter : TemplateParameter {
  * Template value parameter
  */
 class ValueTemplateParameter : TemplateParameter {
-	QualType type;
+	Type type;
 	
-	this(Location location, Name name, uint index, QualType type) {
+	this(Location location, Name name, uint index, Type type) {
 		super(location, name, index);
 		
 		this.type = type;
@@ -236,9 +254,9 @@ class AliasTemplateParameter : TemplateParameter {
  * Template typed alias parameter
  */
 class TypedAliasTemplateParameter : TemplateParameter {
-	QualType type;
+	Type type;
 	
-	this(Location location, Name name, uint index, QualType type) {
+	this(Location location, Name name, uint index, Type type) {
 		super(location, name, index);
 		
 		this.type = type;
@@ -284,9 +302,9 @@ class SymbolAlias : Symbol {
  * Alias of types
  */
 class TypeAlias : TypeSymbol {
-	QualType type;
+	Type type;
 	
-	this(Location location, Name name, QualType type) {
+	this(Location location, Name name, Type type) {
 		super(location, name);
 		
 		this.type = type;
@@ -309,66 +327,45 @@ class ValueAlias : ValueSymbol {
 /**
  * Class
  */
-class Class : TypeSymbol {
+class Class : Aggregate {
 	Class base;
 	Interface[] interfaces;
 	
-	Symbol[] members;
-	
-	AggregateScope dscope;
-	
 	this(Location location, Name name, Symbol[] members) {
-		super(location, name);
+		super(location, name, members);
 		
 		this.name = name;
-		this.members = members;
 	}
 }
 
 /**
  * Interface
  */
-class Interface : TypeSymbol {
+class Interface : Aggregate {
 	Interface[] bases;
-	Symbol[] members;
-	
-	AggregateScope dscope;
 	
 	this(Location location, Name name, Interface[] bases, Symbol[] members) {
-		super(location, name);
+		super(location, name, members);
 		
 		this.bases = bases;
-		this.members = members;
 	}
 }
 
 /**
  * Struct
  */
-class Struct : TypeSymbol {
-	Symbol[] members;
-	
-	AggregateScope dscope;
-	
+class Struct : Aggregate {
 	this(Location location, Name name, Symbol[] members) {
-		super(location, name);
-		
-		this.members = members;
+		super(location, name, members);
 	}
 }
 
 /**
  * Union
  */
-class Union : TypeSymbol {
-	Symbol[] members;
-	
-	SymbolScope dscope;
-	
+class Union : Aggregate {
 	this(Location location, Name name, Symbol[] members) {
-		super(location, name);
-		
-		this.members = members;
+		super(location, name, members);
 	}
 }
 
@@ -397,7 +394,7 @@ class Enum : TypeSymbol {
 class Field : Variable {
 	uint index;
 	
-	this(Location location, uint index, QualType type, Name name, Expression value = null) {
+	this(Location location, uint index, Type type, Name name, Expression value = null) {
 		super(location, type, name, value);
 		
 		this.index = index;

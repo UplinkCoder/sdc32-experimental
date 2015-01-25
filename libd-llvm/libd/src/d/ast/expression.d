@@ -1,10 +1,13 @@
 module d.ast.expression;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
+
+import d.base.node;
+
+import d.context;
 
 abstract class AstExpression : Node {
 	this(Location location) {
@@ -112,12 +115,12 @@ class BinaryExpression(T) : T  if(is(T: AstExpression)){
 		
 		this.op = op;
 	}
-	/+
+	
 	invariant() {
 		assert(lhs);
 		assert(rhs);
 	}
-	+/
+	
 	override string toString(Context ctx) const {
 		import std.conv;
 		return lhs.toString(ctx) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(ctx);
@@ -142,36 +145,65 @@ enum UnaryOp {
 	Complement,
 }
 
-class UnaryExpression(T) : T  if(is(T: AstExpression)){
-	T expr;
-	
-	UnaryOp op;
-	
-	this(U...)(Location location, U args, UnaryOp op, T expr) {
-		super(location, args);
+string unarizeString(string s, UnaryOp op) {
+	final switch(op) with(UnaryOp) {
+		case AddressOf :
+			return "&" ~ s;
 		
-		this.expr = expr;
+		case Dereference :
+			return "*" ~ s;
 		
-		this.op = op;
-	}
-	/+
-	invariant() {
-		assert(expr);
-	}
-	+/
-	override string toString(Context ctx) const {
-		import std.conv;
-		return to!string(op) ~ expr.toString(ctx);
+		case PreInc :
+			return "++" ~ s;
+		
+		case PreDec :
+			return "--" ~ s;
+		
+		case PostInc :
+			return s ~ "++";
+		
+		case PostDec :
+			return s ~ "--";
+		
+		case Plus :
+			return "+" ~ s;
+		
+		case Minus :
+			return "-" ~ s;
+		
+		case Not :
+			return "!" ~ s;
+		
+		case Complement :
+			return "~" ~ s;
 	}
 }
 
-alias AstUnaryExpression = UnaryExpression!AstExpression;
+class AstUnaryExpression : AstExpression {
+	AstExpression expr;
+	UnaryOp op;
+	
+	this(Location location, UnaryOp op, AstExpression expr) {
+		super(location);
+		
+		this.expr = expr;
+		this.op = op;
+	}
+	
+	invariant() {
+		assert(expr);
+	}
+	
+	override string toString(Context ctx) const {
+		return unarizeString(expr.toString(ctx), op);
+	}
+}
 
 class AstCastExpression : AstExpression {
-	QualAstType type;
+	AstType type;
 	AstExpression expr;
 	
-	this(Location location, QualAstType type, AstExpression expr) {
+	this(Location location, AstType type, AstExpression expr) {
 		super(location);
 		
 		this.type = type;
@@ -226,41 +258,37 @@ class IdentifierCallExpression : AstExpression {
 }
 
 /**
- * Index expression : [index]
+ * Index expression : indexed[arguments]
  */
-class IndexExpression(T) : T if(is(T: AstExpression)) {
-	T indexed;
-	T[] arguments;
+class AstIndexExpression : AstExpression {
+	AstExpression indexed;
+	AstExpression[] arguments;
 	
-	this(U...)(Location location, U args, T indexed, T[] arguments) {
-		super(location, args);
+	this(Location location, AstExpression indexed, AstExpression[] arguments) {
+		super(location);
 		
 		this.indexed = indexed;
 		this.arguments = arguments;
 	}
 }
 
-alias AstIndexExpression = IndexExpression!AstExpression;
-
 /**
  * Slice expression : [first .. second]
  */
-class SliceExpression(T) : T if(is(T: AstExpression)) {
-	T sliced;
+class AstSliceExpression : AstExpression {
+	AstExpression sliced;
 	
-	T[] first;
-	T[] second;
+	AstExpression[] first;
+	AstExpression[] second;
 	
-	this(U...)(Location location, U args, T sliced, T[] first, T[] second) {
-		super(location, args);
+	this(Location location, AstExpression sliced, AstExpression[] first, AstExpression[] second) {
+		super(location);
 		
 		this.sliced = sliced;
 		this.first = first;
 		this.second = second;
 	}
 }
-
-alias AstSliceExpression = SliceExpression!AstExpression;
 
 /**
  * Parenthese expression.
@@ -296,10 +324,10 @@ class IdentifierExpression : AstExpression {
  * new
  */
 class NewExpression : AstExpression {
-	QualAstType type;
+	AstType type;
 	AstExpression[] args;
 	
-	this(Location location, QualAstType type, AstExpression[] args) {
+	this(Location location, AstType type, AstExpression[] args) {
 		super(location);
 		
 		this.type = type;
@@ -401,9 +429,9 @@ class DollarExpression : AstExpression {
  * is expression.
  */
 class IsExpression : AstExpression {
-	QualAstType tested;
+	AstType tested;
 	
-	this(Location location, QualAstType tested) {
+	this(Location location, AstType tested) {
 		super(location);
 		
 		this.tested = tested;
@@ -453,7 +481,7 @@ class StaticTypeidExpression(T, E) : E if(is(E: AstExpression)) {
 	}
 }
 
-alias AstStaticTypeidExpression = StaticTypeidExpression!(QualAstType, AstExpression);
+alias AstStaticTypeidExpression = StaticTypeidExpression!(AstType, AstExpression);
 
 /**
  * ambiguous typeid expression.

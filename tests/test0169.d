@@ -9,8 +9,15 @@ struct S {
 	alias l this;
 	uint ui;
 }
+enum E {
+	_1,
+	_2,
+	_3
+}
 
-void main() {
+int main() {
+//	bool bl = 1;
+
 	assert (byte.min == -128);
 	assert (short.min == -32768);
 	auto lmn = long.min;

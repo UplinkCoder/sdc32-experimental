@@ -1,15 +1,17 @@
 module d.ir.expression;
 
-import d.ast.base;
-import d.ast.expression;
-
 import d.ir.symbol;
 import d.ir.type;
 
+import d.ast.expression;
+
+import d.context;
+import d.location;
+
 abstract class Expression : AstExpression {
-	QualType type;
+	Type type;
 	
-	this(Location location, QualType type) {
+	this(Location location, Type type) {
 		super(location);
 		
 		this.type = type;
@@ -23,12 +25,9 @@ abstract class Expression : AstExpression {
 
 alias TernaryExpression = d.ast.expression.TernaryExpression!Expression;
 alias BinaryExpression = d.ast.expression.BinaryExpression!Expression;
-alias UnaryExpression = d.ast.expression.UnaryExpression!Expression;
 alias CallExpression = d.ast.expression.CallExpression!Expression;
-alias IndexExpression = d.ast.expression.IndexExpression!Expression;
-alias SliceExpression = d.ast.expression.SliceExpression!Expression;
 alias AssertExpression = d.ast.expression.AssertExpression!Expression;
-alias StaticTypeidExpression = d.ast.expression.StaticTypeidExpression!(QualType, Expression);
+alias StaticTypeidExpression = d.ast.expression.StaticTypeidExpression!(Type, Expression);
 
 alias BinaryOp = d.ast.expression.BinaryOp;
 alias UnaryOp = d.ast.expression.UnaryOp;
@@ -37,7 +36,7 @@ alias UnaryOp = d.ast.expression.UnaryOp;
  * Any expression that have a value known at compile time.
  */
 abstract class CompileTimeExpression : Expression {
-	this(Location location, QualType type) {
+	this(Location location, Type type) {
 		super(location, type);
 	}
 }
@@ -51,13 +50,71 @@ class ErrorExpression : CompileTimeExpression {
 	string message;
 	
 	this(Location location, string message) {
-		super(location, getBuiltin(TypeKind.None));
+		super(location, Type.get(BuiltinType.None));
 		
 		this.message = message;
 	}
 	
 	override string toString(Context) const {
 		return "__error__(" ~ message ~ ")";
+	}
+}
+
+class UnaryExpression : Expression {
+	Expression expr;
+	UnaryOp op;
+	
+	this(Location location, Type type, UnaryOp op, Expression expr) {
+		super(location, type);
+		
+		this.expr = expr;
+		this.op = op;
+	}
+	
+	invariant() {
+		assert(expr);
+	}
+	
+	override string toString(Context ctx) const {
+		return unarizeString(expr.toString(ctx), op);
+	}
+	
+	@property
+	override bool isLvalue() const {
+		return op == UnaryOp.Dereference;
+	}
+}
+
+/**
+ * Index expression : indexed[arguments]
+ */
+class IndexExpression : Expression {
+	Expression indexed;
+	Expression index;
+	
+	this(Location location, Type type, Expression indexed, Expression index) {
+		super(location, type);
+		
+		this.indexed = indexed;
+		this.index = index;
+	}
+}
+
+/**
+ * Slice expression : [first .. second]
+ */
+class SliceExpression : Expression {
+	Expression sliced;
+	
+	Expression first;
+	Expression second;
+	
+	this(Location location, Type type, Expression sliced, Expression first, Expression second) {
+		super(location, type);
+		
+		this.sliced = sliced;
+		this.first = first;
+		this.second = second;
 	}
 }
 
@@ -69,7 +126,7 @@ class PolysemousExpression : Expression {
 	Expression[] expressions;
 	
 	this(Location location, Expression[] expressions) {
-		super(location, getBuiltin(TypeKind.None));
+		super(location, Type.get(BuiltinType.None));
 		
 		this.expressions = expressions;
 	}
@@ -84,10 +141,10 @@ class PolysemousExpression : Expression {
  */
 class ThisExpression : Expression {
 	this(Location location) {
-		super(location, getBuiltin(TypeKind.None));
+		super(location, Type.get(BuiltinType.None));
 	}
 	
-	this(Location location, QualType type) {
+	this(Location location, Type type) {
 		super(location, type);
 	}
 	
@@ -97,7 +154,7 @@ class ThisExpression : Expression {
 	
 	@property
 	override bool isLvalue() const {
-		return !(cast(ClassType) type.type);
+		return type.kind != TypeKind.Class;
 	}
 }
 
@@ -106,10 +163,10 @@ class ThisExpression : Expression {
  */
 class SuperExpression : Expression {
 	this(Location location) {
-		super(location, getBuiltin(TypeKind.None));
+		super(location, Type.get(BuiltinType.None));
 	}
 	
-	this(Location location, QualType type) {
+	this(Location location, Type type) {
 		super(location, type);
 	}
 	
@@ -127,8 +184,8 @@ class SuperExpression : Expression {
  * Context
  */
 class ContextExpression : Expression {
-	this(Location location, ContextType type) {
-		super(location, QualType(type));
+	this(Location location, Function f) {
+		super(location, Type.getContextType(f));
 	}
 	
 	override string toString(Context) const {
@@ -149,7 +206,7 @@ class VtblExpression : Expression {
 	Class dclass;
 	
 	this(Location location, Class dclass) {
-		super(location, QualType(new PointerType(getBuiltin(TypeKind.Void))));
+		super(location, Type.get(BuiltinType.Void).getPointer());
 		
 		this.dclass = dclass;
 	}
@@ -166,7 +223,7 @@ class BooleanLiteral : CompileTimeExpression {
 	bool value;
 	
 	this(Location location, bool value) {
-		super(location, getBuiltin(TypeKind.Bool));
+		super(location, Type.get(BuiltinType.Bool));
 		
 		this.value = value;
 	}
@@ -181,17 +238,17 @@ class BooleanLiteral : CompileTimeExpression {
  */
 class IntegerLiteral(bool isSigned) : CompileTimeExpression {
 	static if(isSigned) {
-		alias long ValueType;
+		alias ValueType = long;
 	} else {
-		alias ulong ValueType;
+		alias ValueType = ulong;
 	}
 	
 	ValueType value;
 	
-	this(Location location, ValueType value, TypeKind kind) in {
-		assert(isIntegral(kind));
+	this(Location location, ValueType value, BuiltinType t) in {
+		assert(isIntegral(t) && .isSigned(t) == isSigned);
 	} body {
-		super(location, getBuiltin(kind));
+		super(location, Type.get(t));
 		
 		this.value = value;
 	}
@@ -208,10 +265,10 @@ class IntegerLiteral(bool isSigned) : CompileTimeExpression {
 class FloatLiteral : CompileTimeExpression {
 	double value;
 	
-	this(Location location, double value, TypeKind kind) in {
-		assert(isFloat(kind));
+	this(Location location, double value, BuiltinType t) in {
+		assert(isFloat(t));
 	} body {
-		super(location, getBuiltin(kind));
+		super(location, Type.get(t));
 		
 		this.value = value;
 	}
@@ -223,10 +280,10 @@ class FloatLiteral : CompileTimeExpression {
 class CharacterLiteral : CompileTimeExpression {
 	string value;
 	
-	this(Location location, string value, TypeKind kind) in {
-		assert(isChar(kind));
+	this(Location location, string value, BuiltinType t) in {
+		assert(isChar(t));
 	} body {
-		super(location, getBuiltin(kind));
+		super(location, Type.get(t));
 		
 		this.value = value;
 	}
@@ -247,10 +304,11 @@ class StringLiteral : CompileTimeExpression {
 	string value;
 	
 	this(Location location, string value) {
-		auto c = getBuiltin(TypeKind.Char);
-		c.qualifier = TypeQualifier.Immutable;
-		
-		super(location, QualType(new SliceType(c)));
+		super(
+			location,
+			Type.get(BuiltinType.Char, TypeQualifier.Immutable)
+				.getSlice(TypeQualifier.Immutable),
+		);
 		
 		this.value = value;
 	}
@@ -265,10 +323,10 @@ class StringLiteral : CompileTimeExpression {
  */
 class NullLiteral : CompileTimeExpression {
 	this(Location location) {
-		this(location, getBuiltin(TypeKind.Null));
+		this(location, Type.get(BuiltinType.Null));
 	}
 	
-	this(Location location, QualType t) {
+	this(Location location, Type t) {
 		super(location, t);
 	}
 	
@@ -282,8 +340,10 @@ class NullLiteral : CompileTimeExpression {
  */
 enum CastKind {
 	Invalid,
+	IntToPtr,
+	PtrToInt,
 	Down,
-	IntegralToBool,
+	IntToBool,
 	Trunc,
 	Pad,
 	Bit,
@@ -296,7 +356,7 @@ class CastExpression : Expression {
 	
 	CastKind kind;
 	
-	this(Location location, CastKind kind, QualType type, Expression expr) {
+	this(Location location, CastKind kind, Type type, Expression expr) {
 		super(location, type);
 		
 		this.kind = kind;
@@ -311,8 +371,10 @@ class CastExpression : Expression {
 	override bool isLvalue() const {
 		final switch(kind) with(CastKind) {
 			case Invalid :
+			case IntToPtr :
+			case PtrToInt :
 			case Down :
-			case IntegralToBool :
+			case IntToBool :
 			case Trunc :
 			case Pad :
 				return false;
@@ -333,18 +395,19 @@ class NewExpression : Expression {
 	Expression ctor;
 	Expression[] args;
 	
-	this(Location location, QualType type, Expression dinit, Expression ctor, Expression[] args) {
+	this(Location location, Type type, Expression dinit, Expression ctor, Expression[] args) {
 		super(location, type);
 		
 		this.dinit = dinit;
 		this.ctor = ctor;
 		this.args = args;
 	}
-	
+	/+
 	override string toString(Context ctx) const {
 		import std.algorithm, std.range;
 		return "new " ~ type.toString(ctx) ~ "(" ~ args.map!(a => a.toString(ctx)).join(", ") ~ ")";
 	}
+	+/
 }
 
 /**
@@ -389,7 +452,7 @@ class FieldExpression : Expression {
 	
 	@property
 	override bool isLvalue() const {
-		return (cast(ClassType) expr.type.type) || expr.isLvalue;
+		return expr.type.kind == TypeKind.Class || expr.isLvalue;
 	}
 }
 
@@ -401,7 +464,7 @@ class FunctionExpression : Expression {
 	Function fun;
 	
 	this(Location location, Function fun) {
-		super(location, QualType(fun.type));
+		super(location, fun.type.getType());
 		
 		this.fun = fun;
 	}
@@ -419,7 +482,7 @@ class MethodExpression : Expression {
 	Function method;
 	
 	this(Location location, Expression expr, Function method) {
-		super(location, QualType(new DelegateType(method.type)));
+		super(location, method.type.getDelegate().getType());
 		
 		this.expr = expr;
 		this.method = method;
@@ -436,7 +499,7 @@ class MethodExpression : Expression {
 class DynamicTypeidExpression : Expression {
 	Expression argument;
 	
-	this(Location location, QualType type, Expression argument) {
+	this(Location location, Type type, Expression argument) {
 		super(location, type);
 		
 		this.argument = argument;
@@ -451,11 +514,7 @@ class DynamicTypeidExpression : Expression {
  * Used for type identifier = void;
  */
 class VoidInitializer : CompileTimeExpression {
-	this(Location location) {
-		super(location, getBuiltin(TypeKind.None));
-	}
-	
-	this(Location location, QualType type) {
+	this(Location location, Type type) {
 		super(location, type);
 	}
 	
@@ -477,7 +536,7 @@ template TupleExpressionImpl(bool isCompileTime = false) {
 	class TupleExpressionImpl : E {
 		E[] values;
 		
-		this(Location location, QualType t, E[] values) {
+		this(Location location, Type t, E[] values) {
 			// Implement type tuples.
 			super(location, t);
 		

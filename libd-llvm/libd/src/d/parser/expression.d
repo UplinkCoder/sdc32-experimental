@@ -4,7 +4,6 @@ import d.ast.expression;
 import d.ast.identifier;
 
 import d.ir.expression;
-import d.ir.type;
 
 import d.parser.ambiguous;
 import d.parser.base;
@@ -625,7 +624,8 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 			
 			trange.popFront();
 			
-			return new d.ir.expression.CharacterLiteral(location, str, TypeKind.Char);
+			import d.base.builtintype : BuiltinType;
+			return new d.ir.expression.CharacterLiteral(location, str, BuiltinType.Char);
 		
 		case OpenBracket :
 			AstExpression[] keys, values;
@@ -674,12 +674,12 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 				location.spanTo(trange.front.location);
 				trange.match(CloseParen);
 				
-				alias type = typeof(parsed);
-				
 				import d.ast.type;
-				static if(is(type : QualAstType)) {
+				
+				alias T = typeof(parsed);
+				static if(is(T : AstType)) {
 					return new AstStaticTypeidExpression(location, parsed);
-				} else static if(is(type : AstExpression)) {
+				} else static if(is(T : AstExpression)) {
 					return new AstTypeidExpression(location, parsed);
 				} else {
 					return new IdentifierTypeidExpression(location, parsed);
@@ -1009,21 +1009,22 @@ private AstExpression parseIntegerLiteral(R)(ref R trange) {
 		}
 	}
 	
+	import d.base.builtintype : BuiltinType;
 	if(isUnsigned) {
 		auto integer = parse!ulong(value);
 		
-		if(isLong || integer > uint.max) {
-			return new IntegerLiteral!false(location, integer, TypeKind.Ulong);
+		if (isLong || integer > uint.max) {
+			return new IntegerLiteral!false(location, integer, BuiltinType.Ulong);
 		} else {
-			return new IntegerLiteral!false(location, integer, TypeKind.Uint);
+			return new IntegerLiteral!false(location, integer, BuiltinType.Uint);
 		}
 	} else {
 		auto integer = parse!long(value);
 		
-		if(isLong || integer > int.max || integer < int.min) {
-			return new IntegerLiteral!true(location, integer, TypeKind.Long);
+		if (isLong || integer > int.max || integer < int.min) {
+			return new IntegerLiteral!true(location, integer, BuiltinType.Long);
 		} else {
-			return new IntegerLiteral!true(location, integer, TypeKind.Int);
+			return new IntegerLiteral!true(location, integer, BuiltinType.Int);
 		}
 	}
 }

@@ -9,12 +9,10 @@ import d.semantic.dmodule;
 import d.semantic.evaluator;
 import d.semantic.scheduler;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.dmodule;
 import d.ast.expression;
 import d.ast.statement;
-import d.ast.type;
 
 import d.ir.expression;
 import d.ir.dscope;
@@ -28,7 +26,6 @@ import d.context;
 import d.exception;
 import d.lexer;
 import d.location;
-import d.object;
 
 import std.algorithm;
 import std.array;
@@ -38,7 +35,6 @@ import std.range;
 alias AstModule = d.ast.dmodule.Module;
 alias Module = d.ir.symbol.Module;
 
-alias FunctionType = d.ir.type.FunctionType;
 alias CallExpression = d.ir.expression.CallExpression;
 
 alias BlockStatement = d.ir.statement.BlockStatement;
@@ -52,6 +48,7 @@ final class SemanticPass {
 	
 	Evaluator evaluator;
 	
+	import d.object;
 	ObjectReference object;
 	
 	Name[] versions = [BuiltinName!"SDC", BuiltinName!"D_LP64"];
@@ -62,7 +59,7 @@ final class SemanticPass {
 		ParamType returnType;
 		ParamType thisType;
 		
-		ContextType ctxType;
+		Function ctxSym;
 		
 		string manglePrefix;
 		
@@ -86,8 +83,8 @@ final class SemanticPass {
 		this.context	= context;
 		this.evaluator	= evaluator;
 		
-		moduleVisitor		= new ModuleVisitor(this, sourceFactory);
-		scheduler			= new Scheduler(this);
+		moduleVisitor	= new ModuleVisitor(this, sourceFactory);
+		scheduler		= new Scheduler(this);
 		
 		auto obj	= importModule([BuiltinName!"object"]);
 		object		= new ObjectReference(obj);
@@ -119,14 +116,24 @@ final class SemanticPass {
 		return evaluator.evaluate(e);
 	}
 	
+	auto evalIntegral(Expression e) {
+		return evaluator.evalIntegral(e);
+	}
+	
+	auto evalString(Expression e) {
+		return evaluator.evalString(e);
+	}
+	
 	auto importModule(Name[] pkgs) {
 		return moduleVisitor.importModule(pkgs);
 	}
 	
-	auto raiseCondition(T)(Location location, string message) {
+	T raiseCondition(T)(Location location, string message) {
 		if(buildErrorNode) {
 			static if(is(T == Type)) {
-				return QualType(new ErrorType(location, message));
+				// FIXME: newtype
+				// return QualType(new ErrorType(location, message));
+				throw new CompileException(location, message);
 			} else static if(is(T == Expression) || is(T == CompileTimeExpression)) {
 				return new ErrorExpression(location, message);
 			} else static if(is(T == Symbol)) {
@@ -157,18 +164,18 @@ final class SemanticPass {
 		auto location = main.fbody.location;
 		
 		auto type = main.type;
-		auto returnType = cast(BuiltinType) type.returnType.type;
-		auto call = new CallExpression(location, QualType(returnType), new FunctionExpression(location, main), []);
+		auto returnType = type.returnType.getType();
+		auto call = new CallExpression(location, returnType, new FunctionExpression(location, main), []);
 		
 		Statement[] fbody;
-		if(returnType && returnType.kind == TypeKind.Void) {
+		if (returnType.kind == TypeKind.Builtin && returnType.builtin == BuiltinType.Void) {
 			fbody ~= new ExpressionStatement(call);
-			fbody ~= new ReturnStatement(location, new IntegerLiteral!true(location, 0, TypeKind.Int));
+			fbody ~= new ReturnStatement(location, new IntegerLiteral!true(location, 0, BuiltinType.Int));
 		} else {
 			fbody ~= new ReturnStatement(location, call);
 		}
 		
-		type = new FunctionType(Linkage.C, ParamType(getBuiltin(TypeKind.Int), false), [], false);
+		type = FunctionType(Linkage.C, Type.get(BuiltinType.Int).getParamType(false, false), [], false);
 		auto bootstrap = new Function(main.location, type, BuiltinName!"_Dmain", [], new BlockStatement(location, fbody));
 		bootstrap.storage = Storage.Enum;
 		bootstrap.visibility = Visibility.Public;

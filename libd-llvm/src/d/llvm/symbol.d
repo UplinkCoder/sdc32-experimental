@@ -48,7 +48,6 @@ final class SymbolGen {
 	}
 	
 	LLVMValueRef genCached(S)(S s) {
-		import d.ast.base;
 		final switch(s.storage) with(Storage) {
 			case Enum:
 			case Static:
@@ -61,7 +60,6 @@ final class SymbolGen {
 	}
 	
 	void register(ValueSymbol s, LLVMValueRef v) {
-		import d.ast.base;
 		final switch(s.storage) with(Storage) {
 			case Enum:
 			case Static:
@@ -151,12 +149,12 @@ final class SymbolGen {
 		auto parameters = f.params;
 		
 		thisPtr = null;
-		if(f.hasThis) {
+		if (f.hasThis) {
 			// TODO: if this have a context, expand variables !
-			auto thisType = f.type.paramTypes[0];
+			auto thisType = f.type.parameters[0];
 			auto value = params[0];
 			
-			if(thisType.isRef || thisType.isFinal) {
+			if (thisType.isRef || thisType.isFinal) {
 				LLVMSetValueName(value, "this");
 				thisPtr = value;
 			} else {
@@ -167,20 +165,20 @@ final class SymbolGen {
 				thisPtr = alloca;
 			}
 			
-			buildEmbededCaptures(thisPtr, thisType.type);
+			buildEmbededCaptures(thisPtr, thisType.getType());
 			
 			params = params[1 .. $];
 			paramTypes = paramTypes[1 .. $];
 		}
 		
 		if (f.hasContext) {
-			auto ctxType = f.type.paramTypes[f.hasThis];
+			auto ctxType = f.type.parameters[f.hasThis];
 			auto parentCtx = params[f.hasThis];
 			
 			assert(ctxType.isRef || ctxType.isFinal);
 			LLVMSetValueName(parentCtx, "__ctx");
 			
-			auto ctxTypeGen = pass.visit(ctxType.type);
+			auto ctxTypeGen = pass.visit(ctxType.getType());
 			contexts = contexts[0 .. $ - retro(contexts).countUntil!(c => c.type is ctxTypeGen)()];
 			
 			auto s = cast(ClosureScope) f.dscope;
@@ -218,13 +216,11 @@ final class SymbolGen {
 			auto value = params[i];
 			
 			if (p.isRef || p.isFinal) {
-				import d.ast.base;
 				assert (p.storage == Storage.Local, "storage must be local");
 				
 				LLVMSetValueName(value, p.mangle.toStringz());
 				locals[p] = value;
 			} else {
-				import d.ast.base;
 				assert (p.storage == Storage.Local || p.storage == Storage.Capture, "storage must be local or capture");
 				
 				auto name = p.name.toString(context);
@@ -278,8 +274,7 @@ final class SymbolGen {
 			import d.llvm.expression;
 			auto eg = ExpressionGen(pass);
 			
-			LLVMValueRef size = LLVMConstTruncOrBitCast(LLVMSizeOf(ctxType) ,getPtrTypeInContext(llvmCtx));
-			auto alloc = eg.buildCall(druntimeGen.getAllocMemory(), [size]);
+			auto alloc = eg.buildCall(druntimeGen.getAllocMemory(), [LLVMSizeOf(ctxType)]);
 			LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
 			
 			LLVMReplaceAllUsesWith(context, LLVMBuildPointerCast(builder, alloc, LLVMPointerType(ctxType, 0), ""));
@@ -287,8 +282,8 @@ final class SymbolGen {
 	}
 	
 	private void buildEmbededCaptures(LLVMValueRef thisPtr, Type t) {
-		if (auto st = cast(StructType) t) {
-			auto s = st.dstruct;
+		if (t.kind == TypeKind.Struct) {
+			auto s = t.dstruct;
 			if (!s.hasContext) {
 				return;
 			}
@@ -297,8 +292,8 @@ final class SymbolGen {
 			assert(vs, "Struct has context but no VoldemortScope");
 			
 			buildEmbededCaptures(thisPtr, 0, embededContexts[s], vs);
-		} else if (auto ct = cast(ClassType) t) {
-			auto c = ct.dclass;
+		} else if (t.kind == TypeKind.Class) {
+			auto c = t.dclass;
 			if (!c.hasContext) {
 				return;
 			}
@@ -369,18 +364,23 @@ final class SymbolGen {
 	}
 	
 	LLVMValueRef visit(Variable v) in {
-		assert(!v.isRef && !v.isFinal);
+		assert(!v.isFinal);
 	} body {
 		import d.llvm.expression;
-		auto value = ExpressionGen(pass).visit(v.value);
+		auto value = v.isRef
+			? AddressOfGen(pass).visit(v.value)
+			: ExpressionGen(pass).visit(v.value);
 		
 		return createVariableStorage(v, value);
 	}
 	
 	private LLVMValueRef createVariableStorage(Variable v, LLVMValueRef value) {
-		import d.ast.base;
-		if(v.storage == Storage.Enum) {
+		if (v.storage == Storage.Enum) {
 			return globals[v] = value;
+		}
+		
+		if (v.isRef) {
+			return locals[v] = value;
 		}
 		
 		auto type = pass.visit(v.type);
@@ -494,7 +494,7 @@ final class SymbolGen {
 	}
 	
 	LLVMTypeRef visit(Enum e) {
-		auto type = pass.visit(new EnumType(e));
+		auto type = pass.buildEnumType(e);
 		/+
 		foreach(entry; e.entries) {
 			visit(entry);
