@@ -2,6 +2,7 @@ language: d
 #compiler:
 # - dmd
 install:
+-# dmd
 - DUB_VER=0.9.22
 - DUB=dub-${DUB_VER}-linux-x86_64
 - sudo dpkg -i ${DUB} || true
