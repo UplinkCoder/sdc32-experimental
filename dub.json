@@ -10,5 +10,5 @@
 	"dependencies": {
 		"libd-llvm":{"version":"~master","path":"libd-llvm"}	
 	},
-	"postBuildCommands":["cd libsdrt && make ARCHFLAG=-m32 2>/dev/null"] 
+	"postBuildCommands":["cd libsdrt && make 2>/dev/null"] 
 }
