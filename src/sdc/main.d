@@ -78,6 +78,7 @@ int main(string[] args) {
 
 	if (testMode) {
 		import sdc.tester;
+
 		return Tester(conf, versions).runTests();
 	}
 
@@ -98,10 +99,11 @@ int main(string[] args) {
 		}
 	}
 	
-	auto sdc = new SDC(files[0], conf, "", versions);
+
 	import std.stdio;
-	writeln(files);
 	try {
+		auto sdc = new SDC(files[0], conf, "", versions);
+
 		foreach(file; files) {
 			sdc.compile(file);
 		}

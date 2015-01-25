@@ -85,7 +85,7 @@ final class SDC {
 			}
 		}
 		
-		assert(0, "filenotfoundmalheur ! " ~ filename);
+		assert(0, "could not find file : " ~ filename);
 	}
 }
 

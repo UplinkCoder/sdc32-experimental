@@ -1,11 +1,14 @@
 module sdc.conf;
+import std.file;
 
 import util.json;
 
 auto buildConf() {
+	import std.string;
+	auto defpath = thisExePath.split('/')[0 .. $-1].join("/");
 	auto conf = parseJSON(`{
-		"includePath": ["@SDCPATH@/../libs", "."],
-		"libPath": ["@SDCPATH@/../lib"],
+		"includePath": ["`~defpath~`/libs", "."],
+		"libPath": ["`~defpath~`/lib"],
 	}`);
 	
 	// System wide configuration
