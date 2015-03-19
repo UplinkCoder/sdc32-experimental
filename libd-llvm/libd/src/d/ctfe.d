@@ -1,7 +1,7 @@
 ﻿module d.ctfe;
 import std.array:array;
 import std.algorithm:any,all,filter,canFind;
-
+import std.conv:to;
 debug {
 	import std.stdio;
 }
@@ -29,9 +29,9 @@ bool isDefinedIn(Scope inner, Scope outer) {
 }
 
 Expression[] getExpressions(Expression e) {
-	if (auto be = cast(d.ir.expression.BinaryExpression)e) {
+	if (auto be = cast(BinaryExpression)e) {
 		return getExpressions(be.lhs) ~ getExpressions(be.rhs);
-	} else if (auto ue = cast(d.ir.expression.UnaryExpression)e) {
+	} else if (auto ue = cast(UnaryExpression)e) {
 		return getExpressions(ue.expr);
 	}
 	return [e];
@@ -47,11 +47,11 @@ Expression[] getExpressions(Statement s) {
 	return [];
 }
 
-d.ir.statement.Statement[] getStatements(Function f) {
+Statement[] getStatements(Function f) {
 	return getStatements(f.fbody);
 }
 
-d.ir.statement.Statement[] getStatements(Statement s) {
+Statement[] getStatements(Statement s) {
 	Statement[] result;
 
 	if (auto be = cast(BlockStatement)s) {
@@ -129,7 +129,7 @@ bool hasSideEffects(d.ir.expression.Expression e) {
 	return false;
 }
 /// this does check for actual purety
-bool isPure(Function f) {
+bool isPure(Function f, Function cf = null) {
 	if (auto p = f in pureTab) {
 		return *p;
 	}
@@ -139,7 +139,7 @@ bool isPure(Function f) {
 			//	writeln(typeid(expr));
 				if (auto ve = cast (VariableExpression)expr) {
 					if (!(ve.var.definedIn is f.dscope) &&
-						!isDefinedIn(ve.var.definedIn, f.dscope) && 
+						!isDefinedIn(ve.var.definedIn,cf ? cf.dscope : f.dscope) && 
 						!canFind(f.params, ve.var)) {
 						pureTab[f] = false;
 						return false;
@@ -148,13 +148,13 @@ bool isPure(Function f) {
 				bool _isPure;
 				if (auto me = (cast(MethodExpression)ce.callee)) {
 					if (me.method !is f) {
-						_isPure = isPure(me.method);
+						_isPure = isPure(me.method, f);
 					}
 				} else if (auto fe = cast(FunctionExpression)ce.callee) {
 					if (fe.fun !is f) {
-						_isPure = isPure(fe.fun);
+						_isPure = isPure(fe.fun, f);
 					}
-				}
+				} else assert(0,"Unexpected Type: " ~ to!string(typeid(ce.callee)));
 
 				if(!_isPure || any!(e => hasSideEffects(e))(ce.args)) {
 					pureTab[f] = false;
