@@ -6,3 +6,7 @@ void writeln(string s)
 {
     puts(s.ptr);
 }
+
+void writeln(int i) {
+	printf("%d\n".ptr,i);
+}

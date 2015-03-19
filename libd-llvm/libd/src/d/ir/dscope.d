@@ -88,7 +88,8 @@ final:
 			import d.exception;
 			throw new CompileException(s.location, "Already defined");
 		}
-		
+		s.definedIn = this;
+
 		symbols[s.name] = s;
 	}
 	

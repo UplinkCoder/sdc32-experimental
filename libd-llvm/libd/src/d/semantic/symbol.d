@@ -203,12 +203,13 @@ struct SymbolAnalyzer {
 				currentScope = oldScope;
 				ctxSym = oldCtxSym;
 			}
-			
+			f.definedIn = oldScope;
+
 			// Update scope.
-			currentScope = f.dscope = f.hasContext
+			f.dscope = f.hasContext
 				? new ClosureScope(f, oldScope)
 				: new FunctionScope(f, oldScope);
-			
+			currentScope = f.dscope;
 			ctxSym = f;
 			
 			// Register parameters.
@@ -254,6 +255,9 @@ struct SymbolAnalyzer {
 		}
 		
 		f.step = Step.Processed;
+		import std.stdio;
+		import d.ctfe;
+		writeln("isPure (",f.name.toString(pass.context),") : ",isPure(f));
 	}
 	
 	void analyze(FunctionDeclaration d, Method m) {
@@ -313,7 +317,7 @@ struct SymbolAnalyzer {
 		scope(exit) f.storage = oldStorage;
 		
 		f.storage = Storage.Enum;
-		
+		f.definedIn = currentScope;
 		analyze(d, cast(Variable) f);
 	}
 	
@@ -386,11 +390,14 @@ struct SymbolAnalyzer {
 		
 		assert(s.linkage == Linkage.D || s.linkage == Linkage.C);
 		s.mangle = "S" ~ manglePrefix;
-		
-		auto dscope = currentScope = s.dscope = s.hasContext
+
+		s.dscope = s.hasContext
 			? new VoldemortScope(s, oldScope)
 			: new AggregateScope(s, oldScope);
-		
+		currentScope = s.dscope;
+		auto dscope = currentScope;	
+		s.definedIn = oldScope;
+
 		fieldIndex = 0;
 		Field[] fields;
 		if (s.hasContext) {
@@ -459,10 +466,13 @@ struct SymbolAnalyzer {
 		
 		c.mangle = "C" ~ manglePrefix;
 		
-		auto dscope = currentScope = c.dscope = c.hasContext
+		c.dscope = c.hasContext
 			? new VoldemortScope(c, oldScope)
 			: new AggregateScope(c, oldScope);
-		
+		currentScope = c.dscope;
+		auto dscope = currentScope;
+		c.definedIn = oldScope;
+
 		Field[] baseFields;
 		Method[] baseMethods;
 		foreach(i; d.bases) {

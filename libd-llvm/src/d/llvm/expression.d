@@ -726,7 +726,7 @@ struct ExpressionGen {
 		}
 		
 		uint i = 0;
-		foreach(t; params) {
+		if (c.args) foreach(t; params) {
 			args[i + firstarg] = t.isRef
 				? addressOf(c.args[i])
 				: visit(c.args[i]);

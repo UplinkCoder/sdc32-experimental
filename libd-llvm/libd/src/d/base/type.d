@@ -21,7 +21,7 @@ private:
 	static assert(K.Builtin == 0, K.stringof ~ " must have a member Builtin of value 0.");
 	static assert(K.Function != 0, K.stringof ~ " must have a Function kind.");
 	
-	static assert(Payload.sizeof == ulong.sizeof, "Payload must be the same size as ulong.");
+	static assert(Payload.sizeof == size_t.sizeof, "Payload must be the same size as size_t.");
 	static assert(is(typeof(Payload.init.next) == typeof(&this)), "Payload.next must be a pointer to the next type element.");
 	static assert(is(typeof(Payload.init.params) == ParamType*), "Payload.params must be a pointer to parameter's types.");
 	

@@ -3,7 +3,7 @@
 import sdc.terminal;
 import d.location;
 
-private final class StringSource : Source {
+final class StringSource : Source {
 	
 	string _name;
 	immutable string[] _packages;
@@ -61,6 +61,7 @@ struct Tester {
 	
 	bool runTests() {
 		immutable Test[] tests = readTests();
+		writeln("read ",tests.length, " tests.");
 		Result[] results;
 		foreach (test;tests) {
 		
@@ -98,14 +99,14 @@ struct Tester {
 		
 		assert(results.length == tests.length);
 		
-		ulong[] regressions;
-		ulong[] improvements;
+		uint[] regressions;
+		uint[] improvements;
 		
 		foreach (i,r;results) {
 			if (tests[i].has_passed && !r.hasPassed) {
-				regressions ~= i;
+				regressions ~= r.testNumber ;
 			} else if (!tests[i].has_passed && r.hasPassed) {
-				improvements ~= i;
+				improvements ~= r.testNumber;
 			}
 		}
 

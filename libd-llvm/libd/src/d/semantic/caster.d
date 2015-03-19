@@ -526,7 +526,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		
 		import std.range;
 		foreach(fromc, toc; lockstep(f.contexts, tf.contexts)) {
-			// Contextx are covariant.
+			// Contexts are covariant.
 			auto kc = castFrom(fromc, toc);
 			if(kc < CastKind.Bit) return onFail;
 			
@@ -550,4 +550,3 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		assert(0, "Not implemented.");
 	}
 }
-

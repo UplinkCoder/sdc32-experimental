@@ -165,6 +165,14 @@ final class SemanticPass {
 		
 		auto type = main.type;
 		auto returnType = type.returnType.getType();
+
+		if (returnType.kind != TypeKind.Builtin) {
+			throw new CompileException(main.location, "main must return int or void, not " ~ returnType.toString(context));
+		} else if (!(returnType.builtin == BuiltinType.Int || 
+				returnType.builtin == BuiltinType.Void)) {
+			throw new CompileException(main.location, "main must return int or void, not " ~ returnType.toString(context));
+		}
+
 		auto call = new CallExpression(location, returnType, new FunctionExpression(location, main), []);
 		
 		Statement[] fbody;
@@ -184,5 +192,10 @@ final class SemanticPass {
 		
 		return bootstrap;
 	}
+
+	T get(T)(string name) {
+	//	foreach()
+	}
+
 }
 

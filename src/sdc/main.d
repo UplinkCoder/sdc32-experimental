@@ -78,7 +78,6 @@ int main(string[] args) {
 
 	if (testMode) {
 		import sdc.tester;
-
 		return Tester(conf, versions).runTests();
 	}
 

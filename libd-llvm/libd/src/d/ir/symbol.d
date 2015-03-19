@@ -17,9 +17,11 @@ enum Step {
 }
 
 class Symbol : Node {
+	/// the scope the symbol was defined in
+	Scope definedIn;
 	Name name;
 	string mangle;
-	
+
 	import std.bitmanip;
 	mixin(bitfields!(
 		Linkage, "linkage", 3,
@@ -33,10 +35,11 @@ class Symbol : Node {
 		uint, "", 2,
 	));
 	
-	this(Location location, Name name) {
+	this(Location location, Name name, Scope definedIn = null) {
 		super(location);
 		
 		this.name = name;
+		this.definedIn = definedIn;
 	}
 	
 	string toString(Context ctx) const {

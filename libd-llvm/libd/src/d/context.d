@@ -74,6 +74,10 @@ enum Prefill = [
 	"SDC", "D_LP64",
 	// Generated
 	"init", "length", "max", "min", "ptr", "sizeof",
+	// Special-Functions
+	"front", "popFront", "empty",
+	// Ops
+	"opApply", "opBinary", 
 	// Scope
 	"exit", "success", "failure",
 	// Main

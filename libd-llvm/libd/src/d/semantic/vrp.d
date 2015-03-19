@@ -335,7 +335,22 @@ struct ValueRangePropagator {
 	}
 	
 	ValueRange visit(UnaryExpression e) {
-		assert(0, "Not implemented.");
+		switch (e.op) with(UnaryOp) {
+			case Plus : 
+				return visit(e.expr);
+			case Minus :
+				return sub(ValueRange(0), visit(e.expr), e.expr.type);
+
+
+			default :
+				assert(0, e.location.toString ~ " UnaryExpressions are not implemented.");
+		}
+
+
+	}
+
+	ValueRange visit(CastExpression ce) {
+		return visit(ce.expr);
 	}
 	
 	ValueRange visit(VariableExpression e) {
@@ -345,6 +360,19 @@ struct ValueRangePropagator {
 		return (v.storage == Storage.Enum || v.type.qualifier == TypeQualifier.Immutable)
 			? visit(v.value)
 			: ValueRange.get(v.type);
+	}
+
+	ValueRange visit(CallExpression ce) {
+		if (ce.type.kind == TypeKind.Builtin) {
+		//	if (isCTFEable(ce)) {
+		//		auto ret = evaluate(ce);
+		//		return ValueRange(ret.value);
+		//	}
+			auto bt = ce.type.builtin;
+			return ValueRange(getMin(bt), getMax(bt));
+		} else {
+			assert(0);
+		}
 	}
 }
 

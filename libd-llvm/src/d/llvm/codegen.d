@@ -159,7 +159,12 @@ final class CodeGenPass {
 	auto buildDString(string str) {
 		return stringGen.buildDString(str);
 	}
-	
+
+	//
+	//T ctfeT (T) (Expression e) {
+	//
+	//}
+
 	auto ctfe(Expression e, LLVMExecutionEngineRef executionEngine) {
 		scope(failure) LLVMDumpModule(dmodule);
 		

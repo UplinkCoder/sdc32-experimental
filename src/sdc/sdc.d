@@ -31,7 +31,7 @@ final class SDC {
 	
 	Module[] modules;
 	
-	this(string name, JSON conf, string linkerParams,string[] versions) {
+	this(string name, JSON conf, string linkerParams, string[] versions) {
 		includePath = conf["includePath"].array.map!(path => cast(string) path).array();
 		linkerParams = conf["libPath"].array.map!(path => " -L" ~ (cast(string) path)).join();
 
@@ -46,7 +46,7 @@ final class SDC {
 	}
 
 	void compile (Source s, Name[] packages = []) {
-		modules ~= semantic.add(s,packages);
+		modules ~= semantic.add(s, packages);
 	}
 
 	void compile(string filename) {
