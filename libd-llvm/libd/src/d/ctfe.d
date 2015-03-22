@@ -253,6 +253,12 @@ bool isPure(Expression e, Function f) {
 			if (fe.fun !is f) {
 				_isPure = isPure(fe.fun, f);
 			}
+		} else if (auto ve = cast(VariableExpression)ce.callee) {
+			auto fe = cast (FunctionExpression) ve.var.value;
+			assert(fe);
+			if (fe.fun !is f) {
+				_isPure = isPure(fe.fun, f);
+			}
 		} else assert(0,"Unexpected Type: " ~ to!string(typeid(ce.callee)));
 		
 	if(!_isPure || any!(e => !isPure(e, f))(ce.args)) {
