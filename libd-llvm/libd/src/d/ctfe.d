@@ -236,9 +236,7 @@ bool isPure(Function f, Function cf = null) {
 /// it takes the result of getExpressions!
 bool isPure(Expression e, Function f) {
 	if (auto ve = cast (VariableExpression) e) {
-		if(isIllgalImmutable(ve)) {
-			writeln("Illigal Immutable your bastard!");
-		}
+		isIllgalImmutable(ve);
 
 		if ((ve.var.definedIn !is f.dscope) &&
 			!isDefinedIn(ve.var.definedIn, f.dscope) &&
