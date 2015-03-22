@@ -423,10 +423,16 @@ private Declaration parseFunction(R)(ref R trange, Location location, StorageCla
 	
 	while(1) {
 		switch(trange.front.type) with(TokenType) {
-			case Pure, Const, Immutable, Inout, Shared, Nothrow :
+			case Const, Immutable, Inout, Shared, Nothrow :
 				trange.popFront();
 				assert(0, "Not implemented");
 			
+			case Pure : 
+				trange.popFront();
+				stc.isPure = true;
+
+				continue;
+
 			case At :
 				trange.popFront();
 				auto attr = trange.front.name;

@@ -139,11 +139,11 @@ struct StatementVisitor {
 		import d.semantic.expression;
 		Expression condition = f.condition
 			? buildExplicitCast(pass, f.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(f.condition))
-				: new BooleanLiteral(f.location, true);
+			: new BooleanLiteral(f.location, true);
 		
 		Expression increment = f.increment
 			? ExpressionVisitor(pass).visit(f.increment)
-				: new BooleanLiteral(f.location, true);
+			: new BooleanLiteral(f.location, true);
 		
 		flattenedStmts[$ - 1] = new ForStatement(f.location, initialize, condition, increment, autoBlock(f.statement));
 	}

@@ -3,6 +3,7 @@ module d.node;
 import d.location;
 
 class Node {
+	Node parent;
 	Location location;
 	
 	this(Location location) {

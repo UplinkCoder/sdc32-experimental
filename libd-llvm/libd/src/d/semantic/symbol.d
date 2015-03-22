@@ -215,7 +215,8 @@ struct SymbolAnalyzer {
 			// Register parameters.
 			foreach(p; params) {
 				p.step = Step.Processed;
-				
+				p.definedIn = currentScope;
+
 				if (!p.name.isEmpty()) {
 					f.dscope.addSymbol(p);
 				}
@@ -255,9 +256,14 @@ struct SymbolAnalyzer {
 		}
 		
 		f.step = Step.Processed;
-		import std.stdio;
+
 		import d.ctfe;
-		writeln("isPure (",f.name.toString(pass.context),") : ",isPure(f));
+		import std.stdio;
+		writeln("isPure : '", fd.name.toString(context), "' : ", isPure(f));
+		if(fd.storageClass.isPure && !isPure(f)) {
+			import d.exception;
+			throw new CompileException(fd.location, "The function " ~ f.name.toString(pass.context) ~ " is NOT pure!");
+		}
 	}
 	
 	void analyze(FunctionDeclaration d, Method m) {
@@ -309,6 +315,7 @@ struct SymbolAnalyzer {
 		}
 		
 		v.step = Step.Processed;
+		v.definedIn = currentScope;
 	}
 	
 	void analyze(VariableDeclaration d, Field f) {

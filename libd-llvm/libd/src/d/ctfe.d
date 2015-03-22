@@ -29,22 +29,51 @@ bool isDefinedIn(Scope inner, Scope outer) {
 }
 
 Expression[] getExpressions(Expression e) {
-	if (auto be = cast(BinaryExpression)e) {
-		return getExpressions(be.lhs) ~ getExpressions(be.rhs);
-	} else if (auto ue = cast(UnaryExpression)e) {
-		return getExpressions(ue.expr);
+	Expression[] result;
+	result.reserve(32);
+
+	if (auto be = cast(BinaryExpression) e) {
+		result ~= getExpressions(be.lhs) ~ getExpressions(be.rhs);
+	} else if (auto ue = cast(UnaryExpression) e) {
+		result ~= getExpressions(ue.expr);
+	} else if (auto te = cast(TernaryExpression) e) {
+		result ~= getExpressions(te.condition) ~ getExpressions(te.lhs) ~ getExpressions(te.rhs);
+	} else if (auto ce = cast(CastExpression) e) {
+		result ~= getExpressions(ce.expr);
+	} else if (auto se = cast(SliceExpression) e) {
+		result ~= getExpressions(se.sliced) ~ getExpressions(se.first) ~ getExpressions(se.second);
+	} else {
+		result ~= e;
 	}
-	return [e];
+
+
+	return result;
 }
 
-Expression[] getExpressions(Statement s) {
+Expression[] getExpressions(Statement s, Statement parent = null) {
+	Expression[] result;
+	result.reserve(64);
+
 	if (auto es = cast(ExpressionStatement) s) {
-		return getExpressions(es.expression);
+		result ~= getExpressions(es.expression);
 	} else if (auto rs = cast(ReturnStatement) s) {
-		return getExpressions(rs.value);
-	} else if (auto es = cast(ExpressionStatement) s) {
-	}
-	return [];
+		result ~= getExpressions(rs.value);
+	} else if (auto fs = cast(ForStatement) s) {
+		result ~= getExpressions(fs.initialize) ~ getExpressions(fs.condition)
+			~ getExpressions(fs.increment) ~ getExpressions(fs.statement); 
+	} else if (auto fs = cast(IfStatement) s) {
+		result ~= getExpressions(fs.condition) ~ getExpressions(fs.then) ~ getExpressions(fs.elseStatement); 
+	} else if (auto ws = cast(WhileStatement) s) {
+		result ~= getExpressions(ws.condition) ~ getExpressions(ws.statement);
+	} else if (auto ds = cast(DoWhileStatement) s) {
+		result ~= getExpressions(ds.condition) ~ getExpressions(ds.statement);
+	} else if (auto ss = cast(SwitchStatement) s) {
+		result ~= getExpressions(ss.expression) ~ getExpressions(ss.statement);
+	} else if (auto ss = cast(ScopeStatement) s) {
+		result ~= getExpressions(ss.statement);
+	} 
+	 
+	return result;
 }
 
 Statement[] getStatements(Function f) {
@@ -58,9 +87,7 @@ Statement[] getStatements(Statement s) {
 		foreach(stmt;be.statements) {
 			result ~= getStatements(stmt);
 		}
-	} else if (auto fs = cast(ForStatement)s) {
-		result ~= getStatements(fs.initialize) ~ getStatements(fs.statement);
-	} else {
+	}
 		result ~= s;
 	}
 
@@ -128,43 +155,66 @@ bool hasSideEffects(d.ir.expression.Expression e) {
 
 	return false;
 }
+
+Symbol getSymbolFromScope(Scope s) {
+	auto sscope = cast(SymbolScope)s;
+	if (sscope) {
+		return sscope.symbol;
+	} else {
+		return null;
+	}
+}
+
+Function inFunction(Symbol s) {
+	return cast(Function) getSymbolFromScope(s.definedIn);
+}
+
 /// this does check for actual purety
 bool isPure(Function f, Function cf = null) {
 	if (auto p = f in pureTab) {
 		return *p;
 	}
-
+	if (!f.fbody) {
+		return false;
+	}
 	foreach(stmt;f.getStatements.filter!(s => hasSideEffects(s) && s !is null)) {
 		foreach(expr;getExpressions(stmt)) {
-			//	writeln(typeid(expr));
-				if (auto ve = cast (VariableExpression)expr) {
-					if (!(ve.var.definedIn is f.dscope) &&
-						!isDefinedIn(ve.var.definedIn,cf ? cf.dscope : f.dscope) && 
-						!canFind(f.params, ve.var)) {
-						pureTab[f] = false;
-						return false;
-					}
-			} else if(auto ce = cast(CallExpression)expr) {
-				bool _isPure;
-				if (auto me = (cast(MethodExpression)ce.callee)) {
-					if (me.method !is f) {
-						_isPure = isPure(me.method, f);
-					}
-				} else if (auto fe = cast(FunctionExpression)ce.callee) {
-					if (fe.fun !is f) {
-						_isPure = isPure(fe.fun, f);
-					}
-				} else assert(0,"Unexpected Type: " ~ to!string(typeid(ce.callee)));
-
-				if(!_isPure || any!(e => hasSideEffects(e))(ce.args)) {
-					pureTab[f] = false;
-					return false;
-				}
+			if (!isPure(expr, f)) {
+				pureTab[f] = false;
+				return false;
 			}
 		}
 	}
 
 	pureTab[f] = true;
+	return true;
+}
+/// checks purety of an expression w.r.t Function
+/// it takes the result of getExpressions!
+bool isPure(Expression e, Function f) {
+	if (auto ve = cast (VariableExpression) e) {
+		if ((ve.var.definedIn !is f.dscope) &&
+			!isDefinedIn(ve.var.definedIn, f.dscope) &&
+			ve.var.type.qualifier != TypeQualifier.Immutable) {
+			return false;
+		}
+	} else if(auto ce = cast(CallExpression) e) {
+		bool _isPure;
+		if (auto me = cast(MethodExpression)ce.callee) {
+			if (me.method !is f) {
+				_isPure = isPure(me.method, f);
+			}
+		} else if (auto fe = cast(FunctionExpression)ce.callee) {
+			if (fe.fun !is f) {
+				_isPure = isPure(fe.fun, f);
+			}
+		} else assert(0,"Unexpected Type: " ~ to!string(typeid(ce.callee)));
+		
+	if(!_isPure || any!(e => !isPure(e, f))(ce.args)) {
+			return false;
+		}
+	}
+
 	return true;
 }
 

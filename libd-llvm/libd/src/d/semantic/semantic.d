@@ -164,16 +164,19 @@ final class SemanticPass {
 		auto location = main.fbody.location;
 		
 		auto type = main.type;
-		auto returnType = type.returnType.getType();
+		auto returnType = type.returnType.getType().getCanonical();
 
-		if (returnType.kind != TypeKind.Builtin) {
-			throw new CompileException(main.location, "main must return int or void, not " ~ returnType.toString(context));
-		} else if (!(returnType.builtin == BuiltinType.Int || 
-				returnType.builtin == BuiltinType.Void)) {
+		if (returnType.kind != TypeKind.Builtin ||
+				!(returnType.builtin == BuiltinType.Void ||
+				returnType.builtin == BuiltinType.Int)
+			) {
 			throw new CompileException(main.location, "main must return int or void, not " ~ returnType.toString(context));
 		}
 
-		auto call = new CallExpression(location, returnType, new FunctionExpression(location, main), []);
+		immutable paramsT = [/*Type.get(BuiltinType.Char).getSlice.getSlice.getParamType(false, false)*/]; 
+		immutable params = [/*new Variable(location.init, paramsT[0], BuiltinName!"")*/];
+
+		auto call = new CallExpression(location, returnType, new FunctionExpression(location, main), [/*new VariableExpression(location.init, params[0])*/]);
 		
 		Statement[] fbody;
 		if (returnType.kind == TypeKind.Builtin && returnType.builtin == BuiltinType.Void) {
@@ -182,7 +185,7 @@ final class SemanticPass {
 		} else {
 			fbody ~= new ReturnStatement(location, call);
 		}
-		
+
 		type = FunctionType(Linkage.C, Type.get(BuiltinType.Int).getParamType(false, false), [], false);
 		auto bootstrap = new Function(main.location, type, BuiltinName!"_Dmain", [], new BlockStatement(location, fbody));
 		bootstrap.storage = Storage.Enum;
@@ -192,10 +195,5 @@ final class SemanticPass {
 		
 		return bootstrap;
 	}
-
-	T get(T)(string name) {
-	//	foreach()
-	}
-
 }
 
