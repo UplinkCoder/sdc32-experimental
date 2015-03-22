@@ -264,6 +264,7 @@ struct SymbolAnalyzer {
 			import d.exception;
 			throw new CompileException(fd.location, "The function " ~ f.name.toString(pass.context) ~ " is NOT pure!");
 		}
+
 	}
 	
 	void analyze(FunctionDeclaration d, Method m) {
@@ -281,16 +282,16 @@ struct SymbolAnalyzer {
 			v.type = value.type;
 		} else {
 			import d.semantic.type : TypeVisitor;
-			auto type = v.type = TypeVisitor(pass).withStorageClass(stc).visit(d.type);
+			v.type = TypeVisitor(pass).withStorageClass(stc).visit(d.type);
 			
 			// XXX: remove selective import when dmd is sane.
 			import d.semantic.expression : ExpressionVisitor;
 			import d.semantic.defaultinitializer : InitBuilder;
 			value = d.value
 				? ExpressionVisitor(pass).visit(d.value)
-				: InitBuilder(pass, v.location).visit(type);
+				: InitBuilder(pass, v.location).visit(v.type);
 			
-			value = buildImplicitCast(pass, d.location, type, value);
+			value = buildImplicitCast(pass, d.location, v.type, value);
 		}
 		
 		// Sanity check.
@@ -313,7 +314,10 @@ struct SymbolAnalyzer {
 			import d.semantic.mangler;
 			v.mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ TypeMangler(pass).visit(v.type);
 		}
-		
+
+		import std.stdio;
+		v.type = v.type.qualify(stc.qualifier);
+		writeln(v.type.qualifier);
 		v.step = Step.Processed;
 		v.definedIn = currentScope;
 	}
@@ -324,8 +328,8 @@ struct SymbolAnalyzer {
 		scope(exit) f.storage = oldStorage;
 		
 		f.storage = Storage.Enum;
-		f.definedIn = currentScope;
 		analyze(d, cast(Variable) f);
+		f.definedIn = currentScope;
 	}
 	
 	void analyze(IdentifierAliasDeclaration d, SymbolAlias a) {

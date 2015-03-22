@@ -6,6 +6,7 @@ debug {
 	import std.stdio;
 }
 
+import d.base.node;
 import d.ir.expression;
 import d.ir.statement;
 import d.ir.symbol;
@@ -27,51 +28,93 @@ bool isDefinedIn(Scope inner, Scope outer) {
 
 	return false;
 }
+/// has to be called on the result of getExpressions!
+bool isIllgalImmutable(VariableExpression ve) {
+	if (ve.var.type.qualifier == TypeQualifier.Immutable) {
+		if (isModifyed(ve)) {
+			import d.exception;
+			throw new CompileException(ve.parent.location, "Modifying immutable variable");
+		}
+	}
 
-Expression[] getExpressions(Expression e) {
+	return false;
+}
+
+bool isModifyed(VariableExpression e) {
+	if (auto be = cast(BinaryExpression) e.parent) {
+		return isAssign(be.op) && e is be.lhs;
+	} else if (auto ue = cast(UnaryExpression) e.parent) {
+		return isIncOrDec(ue.op);
+	} else {
+		return false;
+	}
+}
+
+Expression[] getExpressions(Expression e, Node p = null) {
 	Expression[] result;
 	result.reserve(32);
 
 	if (auto be = cast(BinaryExpression) e) {
-		result ~= getExpressions(be.lhs) ~ getExpressions(be.rhs);
+		result ~= e ~ getExpressions(be.lhs, e) ~ getExpressions(be.rhs, e);
 	} else if (auto ue = cast(UnaryExpression) e) {
-		result ~= getExpressions(ue.expr);
+		result ~= e ~ getExpressions(ue.expr, e);
 	} else if (auto te = cast(TernaryExpression) e) {
-		result ~= getExpressions(te.condition) ~ getExpressions(te.lhs) ~ getExpressions(te.rhs);
+		result ~= e ~ getExpressions(te.condition, e) ~ getExpressions(te.lhs, e) ~ getExpressions(te.rhs, e);
 	} else if (auto ce = cast(CastExpression) e) {
-		result ~= getExpressions(ce.expr);
+		result ~= e ~ getExpressions(ce.expr, e);
+	} else if (auto ce = cast(CallExpression) e) {
+		result ~= e ~ getExpressions(ce.callee, e);
+		foreach(arg;ce.args) {
+			result ~= getExpressions(arg, e);
+		}
 	} else if (auto se = cast(SliceExpression) e) {
-		result ~= getExpressions(se.sliced) ~ getExpressions(se.first) ~ getExpressions(se.second);
+		result ~= e ~ getExpressions(se.sliced, e) ~ getExpressions(se.first, e) ~ getExpressions(se.second, e);
 	} else {
 		result ~= e;
 	}
 
+	if (p) {
+		foreach(ref ex;result) {
+			ex.parent = cast(Node)(ex.parent ? ex.parent : p); 
+		}
+	}
 
 	return result;
 }
 
-Expression[] getExpressions(Statement s, Statement parent = null) {
+Expression[] getExpressions(Statement s, Node p = null) {
 	Expression[] result;
 	result.reserve(64);
 
+	foreach(stmt;getStatements(s)) {
+		if (stmt !is s)
+			result ~= getExpressions(stmt); 
+	}
+
 	if (auto es = cast(ExpressionStatement) s) {
-		result ~= getExpressions(es.expression);
+		result ~= getExpressions(es.expression, s);
 	} else if (auto rs = cast(ReturnStatement) s) {
-		result ~= getExpressions(rs.value);
+		result ~= getExpressions(rs.value, s);
 	} else if (auto fs = cast(ForStatement) s) {
-		result ~= getExpressions(fs.initialize) ~ getExpressions(fs.condition)
-			~ getExpressions(fs.increment) ~ getExpressions(fs.statement); 
+		result ~= getExpressions(fs.initialize, s) ~ getExpressions(fs.condition, s)
+			~ getExpressions(fs.increment, s) ~ getExpressions(fs.statement, s); 
 	} else if (auto fs = cast(IfStatement) s) {
-		result ~= getExpressions(fs.condition) ~ getExpressions(fs.then) ~ getExpressions(fs.elseStatement); 
+		result ~= getExpressions(fs.condition, s) ~ getExpressions(fs.then, s) ~ getExpressions(fs.elseStatement, s); 
 	} else if (auto ws = cast(WhileStatement) s) {
-		result ~= getExpressions(ws.condition) ~ getExpressions(ws.statement);
+		result ~= getExpressions(ws.condition, s) ~ getExpressions(ws.statement, s);
 	} else if (auto ds = cast(DoWhileStatement) s) {
-		result ~= getExpressions(ds.condition) ~ getExpressions(ds.statement);
+		result ~= getExpressions(ds.condition, s) ~ getExpressions(ds.statement, s);
 	} else if (auto ss = cast(SwitchStatement) s) {
-		result ~= getExpressions(ss.expression) ~ getExpressions(ss.statement);
+		result ~= getExpressions(ss.expression, s) ~ getExpressions(ss.statement, s);
 	} else if (auto ss = cast(ScopeStatement) s) {
-		result ~= getExpressions(ss.statement);
+		result ~= getExpressions(ss.statement, s);
 	} 
+
+	if (p) {
+		foreach(ref se;result) {
+			se.parent = cast(Node)(se.parent ? se.parent : p); 
+		}
+	}
 	 
 	return result;
 }
@@ -80,64 +123,63 @@ Statement[] getStatements(Function f) {
 	return getStatements(f.fbody);
 }
 
-Statement[] getStatements(Statement s) {
+Statement[] getStatements(Statement s, Node p = null) {
 	Statement[] result;
 
 	if (auto be = cast(BlockStatement)s) {
 		foreach(stmt;be.statements) {
-			result ~= getStatements(stmt);
+			result ~= getStatements(stmt, s);
 		}
-	}
+	} else {
 		result ~= s;
 	}
 
 	return result;
 }
 
-bool hasSideEffects(d.ir.statement.Statement s) {
-	if (auto es = cast(d.ir.statement.ExpressionStatement)s) {
-		return hasSideEffects(es.expression); 
-	} else {
-		return true;
+bool isAssign(BinaryOp op) {
+	switch(op) with (BinaryOp){
+		case Assign :
+		case AddAssign :
+		case BitwiseAndAssign :
+		case BitwiseOrAssign :
+		case BitwiseXorAssign :
+		case ConcatAssign :
+		case DivAssign :
+		case LeftShiftAssign :
+		case SignedRightShiftAssign :
+		case UnsignedRightShiftAssign :
+		case LogicalAndAssign :
+		case LogicalOrAssign :
+		case ModAssign :
+		case MulAssign :
+		case SubAssign :
+		case PowAssign :
+			return true;
+		default :
+			return false;
+			
 	}
-
 }
 
-bool hasSideEffects(d.ir.expression.Expression e) {
-	if (auto be = cast(d.ir.expression.BinaryExpression)e) {
-		switch(be.op) with (BinaryOp){
-			case Assign :
-			case AddAssign :
-			case BitwiseAndAssign :
-			case BitwiseOrAssign :
-			case BitwiseXorAssign :
-			case ConcatAssign :
-			case DivAssign :
-			case LeftShiftAssign :
-			case SignedRightShiftAssign :
-			case UnsignedRightShiftAssign :
-			case LogicalAndAssign :
-			case LogicalOrAssign :
-			case ModAssign :
-			case MulAssign :
-			case SubAssign :
-			case PowAssign :
-				return true;
-			default :
-				return false;
-				
-		}
-	} else if (auto ue = cast(d.ir.expression.UnaryExpression)e) {
-		switch(ue.op) with (UnaryOp) {
-			case PreInc :
-			case PreDec :
-			case PostInc:
-			case PostDec:
-				return true;
+bool isIncOrDec(UnaryOp op) {
+	switch(op) with (UnaryOp) {
+		case PreInc :
+		case PreDec :
+		case PostInc:
+		case PostDec:
+			return true;
 			
-			default : 
-				return false;
-		}
+		default : 
+			return false;
+	}
+}
+
+bool hasSideEffects(Expression e) {
+	if (auto be = cast(BinaryExpression) e) {
+		return isAssign(be.op);
+	} else if (auto ue = cast(UnaryExpression) e) {
+		return isIncOrDec(ue.op);
 	} else if (cast(NewExpression)e) {
 		return true;
 	} else if (cast(AssertExpression)e) {
@@ -174,10 +216,11 @@ bool isPure(Function f, Function cf = null) {
 	if (auto p = f in pureTab) {
 		return *p;
 	}
-	if (!f.fbody) {
+	if (!f.fbody) { // functions without bodys are considered impure!
 		return false;
 	}
-	foreach(stmt;f.getStatements.filter!(s => hasSideEffects(s) && s !is null)) {
+
+	foreach(stmt;f.getStatements.filter!(s => s !is null)) {
 		foreach(expr;getExpressions(stmt)) {
 			if (!isPure(expr, f)) {
 				pureTab[f] = false;
@@ -193,6 +236,10 @@ bool isPure(Function f, Function cf = null) {
 /// it takes the result of getExpressions!
 bool isPure(Expression e, Function f) {
 	if (auto ve = cast (VariableExpression) e) {
+		if(isIllgalImmutable(ve)) {
+			writeln("Illigal Immutable your bastard!");
+		}
+
 		if ((ve.var.definedIn !is f.dscope) &&
 			!isDefinedIn(ve.var.definedIn, f.dscope) &&
 			ve.var.type.qualifier != TypeQualifier.Immutable) {
