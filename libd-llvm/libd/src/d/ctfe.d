@@ -217,6 +217,7 @@ bool isPure(Function f, Function cf = null) {
 		return *p;
 	}
 	if (!f.fbody) { // functions without bodys are considered impure!
+		pureTab[f] = false;
 		return false;
 	}
 
