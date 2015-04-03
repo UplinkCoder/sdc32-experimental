@@ -275,7 +275,7 @@ public:
 	auto sequence() inout in {
 		assert(kind == TypeKind.Sequence, "Not a sequence type.");
 	} body {
-		return payload.next[0 .. desc.data];
+		return payload.next[0 .. cast(size_t) desc.data];
 	}
 	
 	bool hasPointerABI() const {

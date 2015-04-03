@@ -222,17 +222,25 @@ private:
 		
 		@property
 		auto returnType() inout {
-			return params[ctxCount + paramCount];
+			auto returnTypePos = ctxCount + paramCount;
+			import std.stdio;
+			writeln(returnTypePos);
+			return params[cast(size_t) returnTypePos];
 		}
 		
 		@property
 		auto contexts() inout {
-			return params[0 .. ctxCount];
+			
+			return params[0 .. cast(size_t) ctxCount];
 		}
 		
 		@property
 		auto parameters() inout {
-			return params[ctxCount .. ctxCount + paramCount];
+			auto start = ctxCount;
+			auto end = ctxCount + paramCount;
+			import std.stdio;
+			writeln("[",start,":",end,"]");
+			return params[cast(size_t) (start) .. cast(size_t) (end)];
 		}
 	}
 	
