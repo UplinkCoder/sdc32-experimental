@@ -137,6 +137,7 @@ template isJSON(T) {
 }
 
 // Test the templates.
+/+
 unittest {
     assert(isJSONPrimitive!(typeof(null)));
     assert(isJSONPrimitive!bool);
@@ -164,7 +165,7 @@ unittest {
     assert(isJSONObject!(real[string]));
     assert(isJSONObject!(int[][string]));
 }
-
++/
 /**
  * This class of exception may be thrown when something goes wrong
  * while reading JSON data.
@@ -414,7 +415,7 @@ public:
      */
     @trusted pure @property ref inout(JSON[string]) object() inout {
         if (_type != JsonType.Object) {
-            throw new Exception("JSON value is not an object!");
+        //    throw new Exception("JSON value is not an object!");
         }
 
         return _object;
@@ -2407,7 +2408,7 @@ if(isInputRange!InputRange && is(ElementType!InputRange : dchar)) {
 JSON parseJSON(size_t chunkSize = 4096)(File file) {
     return file.byChunk(chunkSize).joiner().parseJSON();
 }
-
+/+
 // Test parseJSON for keywords
 unittest {
     assert(parseJSON(`null`).isNull);
@@ -2594,3 +2595,4 @@ unittest {
     //assert(j5 == "some text");
 }
 
++/

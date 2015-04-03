@@ -1,6 +1,6 @@
 //T compiles:yes
 //T has-passed:yes
-//T retval:34
+//T retval:42
 // Test IFTI with explicit and implicit parameter.
 
 int foo()(int i) {

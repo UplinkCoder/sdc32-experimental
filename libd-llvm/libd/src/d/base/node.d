@@ -1,9 +1,10 @@
-module d.node;
+module d.base.node;
 
-import d.location;
+public import d.location;
 
 class Node {
 	Node parent;
+
 	Location location;
 	
 	this(Location location) {

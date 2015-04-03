@@ -69,11 +69,15 @@ enum Reserved = ["__ctor", "__dtor", "__vtbl"];
 
 enum Prefill = [
 	// Linkages
-	"C", "D", "C++",
+	"C", "D", "C++", "Windows", "System", "Pascal", "Java",
 	// Version
 	"SDC", "D_LP64",
 	// Generated
-	"init", "sizeof", "length", "ptr",
+	"init", "length", "max", "min", "ptr", "sizeof",
+	// Special-Functions
+	"front", "popFront", "empty",
+	// Ops
+	"opApply", "opBinary", 
 	// Scope
 	"exit", "success", "failure",
 	// Main
@@ -83,6 +87,8 @@ enum Prefill = [
 	"Object",
 	"TypeInfo", "ClassInfo",
 	"Throwable", "Exception", "Error",
+	// Attribute
+	"property", "safe", "trusted", "system", "nogc",
 	// Runtime
 	"__sd_class_downcast",
 	"__sd_eh_throw",

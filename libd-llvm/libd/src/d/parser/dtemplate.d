@@ -1,6 +1,5 @@
 module d.parser.dtemplate;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.identifier;
@@ -13,8 +12,8 @@ import d.parser.type;
 
 import std.range;
 
-auto parseTemplate(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
-	Location location = trange.front.location;
+auto parseTemplate(TokenRange)(ref TokenRange trange, StorageClass stc) if(isTokenRange!TokenRange) {
+	auto location = trange.front.location;
 	trange.match(TokenType.Template);
 	
 	auto name = trange.front.name;
@@ -25,7 +24,7 @@ auto parseTemplate(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange
 	
 	location.spanTo(declarations.back.location);
 	
-	return new TemplateDeclaration(location, name, parameters, declarations);
+	return new TemplateDeclaration(location, stc, name, parameters, declarations);
 }
 
 auto parseConstraint(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
@@ -83,7 +82,7 @@ private AstTemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange t
 			return trange.parseAliasParameter();
 		
 		case This :
-			Location location = trange.front.location;
+			auto location = trange.front.location;
 			trange.popFront();
 			
 			auto name = trange.front.name;
@@ -102,12 +101,11 @@ private AstTemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange t
 
 private auto parseTypeParameter(TokenRange)(ref TokenRange trange) {
 	auto name = trange.front.name;
-	Location location = trange.front.location;
+	auto location = trange.front.location;
 	
 	trange.match(TokenType.Identifier);
 	
-	import d.ir.type;
-	auto defaultType = QualAstType(new BuiltinType(TypeKind.None));
+	AstType defaultType;
 	switch(trange.front.type) with(TokenType) {
 		case Colon :
 			trange.popFront();
@@ -128,7 +126,7 @@ private auto parseTypeParameter(TokenRange)(ref TokenRange trange) {
 			goto default;
 		
 		default :
-			auto specialization = QualAstType(new IdentifierType(new BasicIdentifier(location, name)));
+			auto specialization = AstType.get(new BasicIdentifier(location, name));
 			
 			location.spanTo(trange.front.location);
 			return new AstTypeTemplateParameter(location, name, specialization, defaultType);
@@ -136,7 +134,7 @@ private auto parseTypeParameter(TokenRange)(ref TokenRange trange) {
 }
 
 private auto parseValueParameter(TokenRange)(ref TokenRange trange) {
-	Location location = trange.front.location;
+	auto location = trange.front.location;
 	
 	auto type = trange.parseType();
 	auto name = trange.front.name;
@@ -163,7 +161,7 @@ private auto parseValueParameter(TokenRange)(ref TokenRange trange) {
 }
 
 private AstTemplateParameter parseAliasParameter(TokenRange)(ref TokenRange trange) {
-	Location location = trange.front.location;
+	auto location = trange.front.location;
 	trange.match(TokenType.Alias);
 	
 	bool isTyped = false;
@@ -249,10 +247,11 @@ auto parseTemplateArgument(TokenRange)(ref TokenRange trange) if(isTokenRange!To
 	
 	import d.parser.ambiguous;
 	return trange.parseAmbiguous!(delegate TemplateArgument(parsed) {
-		static if(is(typeof(parsed) : QualAstType)) {
+		alias T = typeof(parsed);
+		static if(is(T : AstType)) {
 			location.spanTo(trange.front.location);
 			return new TypeTemplateArgument(location, parsed);
-		} else static if(is(typeof(parsed) : AstExpression)) {
+		} else static if(is(T : AstExpression)) {
 			return new ValueTemplateArgument(parsed);
 		} else {
 			return new IdentifierTemplateArgument(parsed);

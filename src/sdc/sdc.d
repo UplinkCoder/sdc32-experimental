@@ -31,19 +31,24 @@ final class SDC {
 	
 	Module[] modules;
 	
-	this(string name, JSON conf, uint optLevel,string[] versions) {
+	this(string name, JSON conf, string linkerParams, string[] versions) {
 		includePath = conf["includePath"].array.map!(path => cast(string) path).array();
-		
+		linkerParams = conf["libPath"].array.map!(path => " -L" ~ (cast(string) path)).join();
+
 		context = new Context();
 		versions ~= ["SDC"]; 
 	
-		semantic = new SemanticPass(context, &getFileSource,versions);
-		backend	= new LLVMBackend(context, name, optLevel, conf["libPath"].array.map!(path => " -L" ~ (cast(string) path)).join(), semantic);
+		backend	= new LLVMBackend(context, name, 0, linkerParams);
+		semantic = new SemanticPass(context, backend.getEvaluator, &getFileSource);
 		
 		// Review thet way this whole thing is built.
 		backend.getPass().object = semantic.object;
 	}
-	
+
+	void compile (Source s, Name[] packages = []) {
+		modules ~= semantic.add(s, packages);
+	}
+
 	void compile(string filename) {
 		auto packages = filename[0 .. $ - 2].split("/").map!(p => context.getName(p)).array();
 		modules ~= semantic.add(new FileSource(filename), packages);
@@ -80,7 +85,7 @@ final class SDC {
 			}
 		}
 		
-		assert(0, "filenotfoundmalheur ! " ~ filename);
+		assert(0, "could not find file : " ~ filename);
 	}
 }
 

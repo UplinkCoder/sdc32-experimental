@@ -1,9 +1,11 @@
 module d.ast.statement;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
-import d.ast.type;
+
+import d.base.node;
+
+import d.context;
 
 class AstStatement : Node {
 	this(Location location) {
@@ -135,18 +137,39 @@ alias AstForStatement = ForStatement!(AstExpression, AstStatement);
  * foreach statements
  */
 class ForeachStatement : AstStatement {
-	bool reverse;
-	VariableDeclaration[] tupleElements;
-	AstExpression iterrated;
+	ParamDecl[] tupleElements;
+	AstExpression iterated;
 	AstStatement statement;
+	bool reverse;
 	
-	this(Location location,bool reverse, VariableDeclaration[] tupleElements, AstExpression iterrated, AstStatement statement) {
+	this(Location location, ParamDecl[] tupleElements, AstExpression iterated, AstStatement statement, bool reverse) {
 		super(location);
-
-		this.reverse = reverse;
+		
 		this.tupleElements = tupleElements;
-		this.iterrated = iterrated;
+		this.iterated = iterated;
 		this.statement = statement;
+		this.reverse = reverse;
+	}
+}
+
+/**
+ * foreach statements
+ */
+class ForeachRangeStatement : AstStatement {
+	ParamDecl[] tupleElements;
+	AstExpression start;
+	AstExpression stop;
+	AstStatement statement;
+	bool reverse;
+	
+	this(Location location, ParamDecl[] tupleElements, AstExpression start, AstExpression stop, AstStatement statement, bool reverse) {
+		super(location);
+		
+		this.tupleElements = tupleElements;
+		this.start = start;
+		this.stop = stop;
+		this.statement = statement;
+		this.reverse = reverse;
 	}
 }
 

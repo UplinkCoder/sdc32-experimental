@@ -20,16 +20,14 @@ import std.stdio;
 import std.string;
 
 final class LLVMBackend {
-	import d.semantic.semantic;
 	private CodeGenPass pass;
 	private LLVMExecutionEngineRef executionEngine;
 	private LLVMEvaluator evaluator;
 	
 	private uint optLevel;
 	private string linkerParams;
-	private uint bitWidth;
-
-	this(Context context, string modulename, uint optLevel, string linkerParams,SemanticPass sPass) {
+	
+	this(Context context, string name, uint optLevel, string linkerParams) {
 		LLVMInitializeX86TargetInfo();
 		LLVMInitializeX86Target();
 		LLVMInitializeX86TargetMC();
@@ -39,10 +37,8 @@ final class LLVMBackend {
 		
 		this.optLevel = optLevel;
 		this.linkerParams = linkerParams;
-		import d.semantic.sizeof;
-		bitWidth = SizeofVisitor(sPass).visit(sPass.object.getSizeT().type)*8;
 		
-		pass = new CodeGenPass(context, modulename, bitWidth);
+		pass = new CodeGenPass(context, name);
 		
 		char* errorPtr;
 		auto creationError = LLVMCreateJITCompilerForModule(&executionEngine, pass.dmodule, 0, &errorPtr);
@@ -57,7 +53,6 @@ final class LLVMBackend {
 		}
 		
 		evaluator = new LLVMEvaluator(executionEngine, pass);
-		sPass.setEvaluator(evaluator);
 	}
 	
 	auto getPass() {
@@ -110,20 +105,11 @@ final class LLVMBackend {
 		
 		version(OSX) {
 			auto triple = "x86_64-apple-darwin9".ptr;
-		} version (linux) {
+		} else {
 			auto triple = "x86_64-pc-linux-gnu".ptr;
 		}
-		LLVMTargetMachineRef targetMachine;
-		switch (bitWidth) {
-			case 32 : 
-				targetMachine = LLVMCreateTargetMachine(LLVMGetNextTarget(LLVMGetFirstTarget()), triple, "i386".ptr, "".ptr, LLVMCodeGenOptLevel.Default, LLVMRelocMode.Default, LLVMCodeModel.Default);
-			break;
-			case 64 : 
-				targetMachine = LLVMCreateTargetMachine(LLVMGetFirstTarget(), triple, "x86-64".ptr, "".ptr, LLVMCodeGenOptLevel.Default, LLVMRelocMode.Default, LLVMCodeModel.Default);
-			break;
-			default : assert(0,"unspecifyed bitWidth");
-		}
 		
+		auto targetMachine = LLVMCreateTargetMachine(LLVMGetFirstTarget(), triple, "x86-64".ptr, "".ptr, LLVMCodeGenOptLevel.Default, LLVMRelocMode.Default, LLVMCodeModel.Default);
 		scope(exit) LLVMDisposeTargetMachine(targetMachine);
 		
 		/*
@@ -158,10 +144,7 @@ final class LLVMBackend {
 	}
 	
 	void link(string objFile, string executable) {
-		string stdlib = "sdrt";
-                if (bitWidth==32) stdlib ~= "32 -m32";
-
-		auto linkCommand = "gcc -o " ~ escapeShellFileName(executable) ~ " " ~ escapeShellFileName(objFile) ~ linkerParams ~ " -l"~stdlib;
+		auto linkCommand = "gcc -o " ~ escapeShellFileName(executable) ~ " " ~ escapeShellFileName(objFile) ~ linkerParams ~ " -lsdrt";
 		
 		writeln(linkCommand);
 		wait(spawnShell(linkCommand));

@@ -4,16 +4,16 @@ import d.semantic.caster;
 import d.semantic.declaration;
 import d.semantic.semantic;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.identifier;
-import d.ast.type;
 
 import d.ir.dscope;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
+
+import d.context;
 
 import std.algorithm;
 import std.array;
@@ -23,9 +23,6 @@ import std.conv;
 import d.ast.statement;
 
 alias BinaryExpression = d.ir.expression.BinaryExpression;
-
-alias PointerType = d.ir.type.PointerType;
-alias FunctionType = d.ir.type.FunctionType;
 
 enum isSchedulable(D, S) = is(D : Declaration) && is(S : Symbol) && !__traits(isAbstractClass, S);
 
@@ -40,7 +37,7 @@ struct SymbolVisitor {
 	void visit(Declaration d, Symbol s) {
 		auto tid = typeid(s);
 		
-		import std.traits;
+		import std.traits, std.typetuple;
 		alias Members = TypeTuple!(__traits(getOverloads, SymbolAnalyzer, "analyze"));
 		foreach(visit; Members) {
 			alias parameters = ParameterTypeTuple!visit;
@@ -74,15 +71,8 @@ struct SymbolAnalyzer {
 	
 	alias Step = SemanticPass.Step;
 	
-	// TODO: see if we can make a union  of pass + visitors with the
-	// correct static checks in place to ensure it is safe and won't break.
-	import d.semantic.type;
-	private TypeVisitor tv;
-	
 	this(SemanticPass pass) {
 		this.pass = pass;
-		
-		tv = TypeVisitor(pass);
 	}
 	
 	void analyze(AstModule astm, Module m) {
@@ -108,38 +98,36 @@ struct SymbolAnalyzer {
 		auto name = astm.name.toString(context);
 		manglePrefix ~= to!string(name.length) ~ name;
 		
-		import d.semantic.declaration;
-		auto dv = DeclarationVisitor(pass, Storage.Static);
-		
 		// All modules implicitely import object.
-		import d.context;
-		m.members = dv.flatten(new ImportDeclaration(m.location, [[BuiltinName!"object"]]) ~ astm.declarations, m);
+		import d.semantic.declaration;
+		m.members = DeclarationVisitor(pass, Storage.Static)
+			.flatten(new ImportDeclaration(m.location, [[BuiltinName!"object"]]) ~ astm.declarations, m);
 		m.step = Step.Populated;
 		
 		scheduler.require(m.members);
 		m.step = Step.Processed;
 	}
 	
-	private void handleFunction(FunctionDeclaration fd, Function f) {
-		// XXX: maybe monad ?
-		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
-		auto params = f.params = fd.params.map!(p => new Parameter(p.location, tv.visit(p.type), p.name, p.value ? (ev.visit(p.value)) : null)).array();
+	void analyze(FunctionDeclaration fd, Function f) {
+		auto params = f.params = fd.params.map!((p) {
+			import d.semantic.type;
+			auto t = TypeVisitor(pass).visit(p.type);
+			
+			Expression v;
+			if (p.value) {
+				import d.semantic.expression;
+				v = ExpressionVisitor(pass).visit(p.value);
+			}
+			
+			return new Variable(p.location, t, p.name, v);
+		}).array();
 		
 		// If this is a closure, we add the context parameter.
 		if(f.hasContext) {
-			assert(ctxType, "ctxType must be defined if function has a context pointer.");
+			assert(ctxSym, "ctxSym must be defined if function has a context pointer.");
 			
-			auto contextParameter = new Parameter(f.location, ParamType(ctxType, true), BuiltinName!"__ctx", null);
+			auto contextParameter = new Variable(f.location, Type.getContextType(ctxSym).getParamType(true, false), BuiltinName!"__ctx");
 			params = contextParameter ~ params;
-		}
-		
-		// If it has a this pointer, add it as parameter.
-		if(f.hasThis) {
-			assert(thisType.type, "thisType must be defined if funtion has a this pointer.");
-			
-			auto thisParameter = new Parameter(f.location, thisType, BuiltinName!"this", null);
-			params = thisParameter ~ params;
 		}
 		
 		// Prepare statement visitor for return type.
@@ -152,40 +140,83 @@ struct SymbolAnalyzer {
 		
 		auto name = f.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
-		auto isAuto = typeid({ return fd.returnType.type; }()) is typeid(AutoType);
 		
-		returnType = isAuto ? ParamType(getBuiltin(TypeKind.None), false) : tv.visit(fd.returnType);
+		auto fbody = fd.fbody;
+		bool isAuto = false;
 		
-		// Compute return type.
-		if(isAuto) {
-			// Functions are always populated as resolution is order dependant.
-			f.step = Step.Populated;
-		} else {
-			f.type = new FunctionType(f.linkage, returnType, params.map!(p => p.type).array(), fd.isVariadic);
+		void buildType() {
+			f.type = FunctionType(f.linkage, pass.returnType, params.map!(p => p.paramType).array(), fd.isVariadic);
 			f.step = Step.Signed;
 		}
 		
-		if(fd.fbody) {
+		immutable isCtor = f.name == BuiltinName!"__ctor";
+		if (isCtor) {
+			assert(f.hasThis, "Constructor must have a this pointer");
+			
+			auto ctorThis = thisType;
+			if (ctorThis.isRef) {
+				ctorThis = ctorThis.getParamType(false, ctorThis.isFinal);
+				returnType = ctorThis;
+				
+				if(fbody) {
+					import d.ast.statement;
+					fbody.statements ~= new AstReturnStatement(f.location, new ThisExpression(f.location));
+				}
+			} else {
+				returnType = Type.get(BuiltinType.Void).getParamType(false, false);
+			}
+			
+			auto thisParameter = new Variable(f.location, ctorThis, BuiltinName!"this");
+			params = thisParameter ~ params;
+			
+			buildType();
+		} else {
+			// If it has a this pointer, add it as parameter.
+			if (f.hasThis) {
+				assert(thisType.getType().kind != TypeKind.Builtin, "thisType must be defined if funtion has a this pointer.");
+				
+				auto thisParameter = new Variable(f.location, thisType, BuiltinName!"this");
+				params = thisParameter ~ params;
+			}
+			
+			isAuto = fd.returnType.getType().isAuto;
+			
+			import d.semantic.type;
+			returnType = isAuto
+				? Type.get(BuiltinType.None).getParamType(false, false)
+				: TypeVisitor(pass).visit(fd.returnType);
+			
+			// Compute return type.
+			if (isAuto) {
+				// Functions are always populated as resolution is order dependant.
+				f.step = Step.Populated;
+			} else {
+				buildType();
+			}
+		}
+		
+		if (fbody) {
 			auto oldScope = currentScope;
-			auto oldCtxType = ctxType;
+			auto oldCtxSym = ctxSym;
 			
 			scope(exit) {
 				currentScope = oldScope;
-				ctxType = oldCtxType;
+				ctxSym = oldCtxSym;
 			}
-			
+			f.definedIn = oldScope;
+
 			// Update scope.
 			f.dscope = f.hasContext
 				? new ClosureScope(f, oldScope)
 				: new FunctionScope(f, oldScope);
 			currentScope = f.dscope;
-			
-			ctxType = new ContextType(f);
+			ctxSym = f;
 			
 			// Register parameters.
 			foreach(p; params) {
 				p.step = Step.Processed;
-				
+				p.definedIn = currentScope;
+
 				if (!p.name.isEmpty()) {
 					f.dscope.addSymbol(p);
 				}
@@ -193,29 +224,26 @@ struct SymbolAnalyzer {
 			
 			// And flatten.
 			import d.semantic.statement;
-			auto sv = StatementVisitor(pass);
-			f.fbody = sv.flatten(fd.fbody);
+			f.fbody = StatementVisitor(pass).flatten(fbody);
 		}
 		
-		if(isAuto) {
+		if (isAuto) {
 			// If nothing has been set, the function returns void.
-			if(auto t = cast(BuiltinType) returnType.type) {
-				if(t.kind == TypeKind.None) {
-					t.kind = TypeKind.Void;
-				}
+			auto t = returnType.getType();
+			if (t.kind == TypeKind.Builtin && t.builtin == BuiltinType.None) {
+				returnType = Type.get(BuiltinType.Void).getParamType(returnType.isRef, returnType.isFinal);
 			}
 			
-			f.type = new FunctionType(f.linkage, returnType, params.map!(p => p.type).array(), fd.isVariadic);
-			f.step = Step.Signed;
+			buildType();
 		}
 		
-		// FIXME: Populated imply mangled. Mangled earlier.
-		switch(f.linkage) with(Linkage) {
+		assert(!isCtor || f.linkage == Linkage.D, "Only D linkage is supported for ctors.");
+		
+		switch (f.linkage) with(Linkage) {
 			case D :
 				import d.semantic.mangler;
-				auto mangler = TypeMangler(pass);
-				auto typeMangle = mangler.visit(f.type);
-				f.mangle = "_D" ~ manglePrefix ~ (f.hasThis?typeMangle:("FM" ~ typeMangle[1 .. $]));
+				auto typeMangle = TypeMangler(pass).visit(f.type);
+				f.mangle = "_D" ~ manglePrefix ~ (f.hasThis ? typeMangle : ("FM" ~ typeMangle[1 .. $]));
 				break;
 			
 			case C :
@@ -228,117 +256,54 @@ struct SymbolAnalyzer {
 		}
 		
 		f.step = Step.Processed;
-	}
-	
-	private void handleCtor(FunctionDeclaration fd, Function f) {
-		// XXX: maybe monad ?
-		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
-		auto params = f.params = fd.params.map!(p => new Parameter(p.location, tv.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
-		
-		auto name = f.name.toString(context);
-		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
-		
-		auto fbody = fd.fbody;
-		
-		auto ctorThis = thisType;
-		
-		assert(thisType.type, "Constructor ?");
-		if(ctorThis.isRef) {
-			ctorThis.isRef = false;
-			returnType = ParamType(thisType.type, false);
-			
-			if(fbody) {
-				import d.ast.statement;
-				fbody.statements ~= new AstReturnStatement(f.location, new ThisExpression(f.location));
-			}
-		} else {
-			returnType = ParamType(getBuiltin(TypeKind.Void), false);
+
+		import d.ctfe;
+		import std.stdio;
+		writeln("isPure : '", fd.name.toString(context), "' : ", isPure(f));
+		if(fd.storageClass.isPure && !isPure(f)) {
+			import d.exception;
+			throw new CompileException(fd.location, "The function " ~ f.name.toString(pass.context) ~ " is NOT pure!");
 		}
-		
-		auto thisParameter = new Parameter(f.location, ctorThis, BuiltinName!"this", null);
-		params = thisParameter ~ params;
-		
-		f.type = new FunctionType(f.linkage, returnType, params.map!(p => p.type).array(), fd.isVariadic);
-		f.step = Step.Signed;
-		
-		if(fbody) {
-			auto oldScope = currentScope;
-			auto oldCtxType = ctxType;
-			
-			scope(exit) {
-				currentScope = oldScope;
-				ctxType = oldCtxType;
-			}
-			
-			// Update scope.
-			currentScope = f.dscope = new FunctionScope(f, oldScope);
-			
-			ctxType = new ContextType(f);
-			
-			// Register parameters.
-			foreach(p; params) {
-				p.step = Step.Processed;
-				f.dscope.addSymbol(p);
-			}
-			
-			// And flatten.
-			import d.semantic.statement;
-			auto sv = StatementVisitor(pass);
-			f.fbody = sv.flatten(fd.fbody);
-		}
-		
-		assert(f.linkage == Linkage.D, "Linkage " ~ to!string(f.linkage) ~ " is not supported for constructors.");
-		
-		import d.semantic.mangler;
-		auto mangler = TypeMangler(pass);
-		auto typeMangle = mangler.visit(f.type);
-		f.mangle = "_D" ~ manglePrefix ~ (f.hasThis?typeMangle:("FM" ~ typeMangle[1 .. $]));
-		
-		f.step = Step.Processed;
-	}
-	
-	void analyze(FunctionDeclaration d, Function f) {
-		if (f.name.isReserved) {
-			handleCtor(d, f);
-		} else {
-			handleFunction(d, f);
-		}
+
 	}
 	
 	void analyze(FunctionDeclaration d, Method m) {
-		handleFunction(d, m);
+		analyze(d, cast(Function) m);
 	}
 	
 	void analyze(VariableDeclaration d, Variable v) {
-		import d.semantic.expression : ExpressionVisitor;
-		auto ev = ExpressionVisitor(pass);
+		auto stc = d.storageClass;
 		
 		Expression value;
-		if(typeid({ return d.type.type; }()) is typeid(AutoType)) {
-			value = ev.visit(d.value);
+		if (d.type.isAuto) {
+			// XXX: remove selective import when dmd is sane.
+			import d.semantic.expression : ExpressionVisitor;
+			value = ExpressionVisitor(pass).visit(d.value);
 			v.type = value.type;
 		} else {
-			auto type = v.type = tv.visit(d.type);
-			if (d.value) {
-				value = ev.visit(d.value);
-			} else {
-				import d.semantic.defaultinitializer;
-				value = InitBuilder(pass).visit(v.location, type);
-			}
+			import d.semantic.type : TypeVisitor;
+			v.type = TypeVisitor(pass).withStorageClass(stc).visit(d.type);
 			
-			value = buildImplicitCast(pass, d.location, type, value);
+			// XXX: remove selective import when dmd is sane.
+			import d.semantic.expression : ExpressionVisitor;
+			import d.semantic.defaultinitializer : InitBuilder;
+			value = d.value
+				? ExpressionVisitor(pass).visit(d.value)
+				: InitBuilder(pass, v.location).visit(v.type);
+			
+			value = buildImplicitCast(pass, d.location, v.type, value);
 		}
 		
 		// Sanity check.
-		if(d.isEnum) {
+		if (stc.isEnum) {
 			assert(v.storage == Storage.Enum);
 		}
 		
-		if(v.storage.isStatic) {
+		if (v.storage.isNonLocal) {
 			value = evaluate(value);
 		}
 		
+		assert(value);
 		v.value = value;
 		
 		auto name = v.name.toString(context);
@@ -347,11 +312,14 @@ struct SymbolAnalyzer {
 			assert(v.linkage == Linkage.D, "I mangle only D !");
 			
 			import d.semantic.mangler;
-			auto mangler = TypeMangler(pass);
-			v.mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ mangler.visit(v.type);
+			v.mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ TypeMangler(pass).visit(v.type);
 		}
-		
+
+		import std.stdio;
+		v.type = v.type.qualify(stc.qualifier);
+		writeln(v.type.qualifier);
 		v.step = Step.Processed;
+		v.definedIn = currentScope;
 	}
 	
 	void analyze(VariableDeclaration d, Field f) {
@@ -360,8 +328,8 @@ struct SymbolAnalyzer {
 		scope(exit) f.storage = oldStorage;
 		
 		f.storage = Storage.Enum;
-		
 		analyze(d, cast(Variable) f);
+		f.definedIn = currentScope;
 	}
 	
 	void analyze(IdentifierAliasDeclaration d, SymbolAlias a) {
@@ -391,7 +359,8 @@ struct SymbolAnalyzer {
 	}
 	
 	void analyze(TypeAliasDeclaration d, TypeAlias a) {
-		a.type = tv.visit(d.type);
+		import d.semantic.type : TypeVisitor;
+		a.type = TypeVisitor(pass).visit(d.type);
 		
 		import d.semantic.mangler;
 		a.mangle = TypeMangler(pass).visit(a.type);
@@ -400,10 +369,9 @@ struct SymbolAnalyzer {
 	}
 	
 	void analyze(ValueAliasDeclaration d, ValueAlias a) {
+		// XXX: remove selective import when dmd is sane.
 		import d.semantic.expression : ExpressionVisitor;
-		auto ev = ExpressionVisitor(pass);
-		
-		a.value = evaluate(ev.visit(d.value));
+		a.value = evaluate(ExpressionVisitor(pass).visit(d.value));
 		
 		import d.semantic.mangler;
 		a.mangle = TypeMangler(pass).visit(a.value.type) ~ ValueMangler(pass).visit(a.value);
@@ -424,8 +392,8 @@ struct SymbolAnalyzer {
 			fieldIndex = oldFieldIndex;
 		}
 		
-		auto type = QualType(new StructType(s));
-		thisType = ParamType(type, true);
+		auto type = Type.get(s);
+		thisType = type.getParamType(true, false);
 		
 		// Update mangle prefix.
 		auto name = s.name.toString(context);
@@ -433,17 +401,18 @@ struct SymbolAnalyzer {
 		
 		assert(s.linkage == Linkage.D || s.linkage == Linkage.C);
 		s.mangle = "S" ~ manglePrefix;
-		
+
 		s.dscope = s.hasContext
 			? new VoldemortScope(s, oldScope)
 			: new AggregateScope(s, oldScope);
 		currentScope = s.dscope;
-		auto dscope = s.dscope;
-		
+		auto dscope = currentScope;	
+		s.definedIn = oldScope;
+
 		fieldIndex = 0;
 		Field[] fields;
 		if (s.hasContext) {
-			auto ctxPtr = QualType(new PointerType(QualType(ctxType)));
+			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
 			auto ctx = new Field(s.location, 0, ctxPtr, BuiltinName!"__ctx", new NullLiteral(s.location, ctxPtr));
 			ctx.step = Step.Processed;
 			
@@ -451,9 +420,7 @@ struct SymbolAnalyzer {
 			fields = [ctx];
 		}
 		
-		auto dv = DeclarationVisitor(pass, AggregateType.Struct);
-		
-		auto members = dv.flatten(d.members, s);
+		auto members = DeclarationVisitor(pass, AggregateType.Struct).flatten(d.members, s);
 		s.step = Step.Populated;
 		
 		auto otherSymbols = members.filter!((m) {
@@ -502,8 +469,7 @@ struct SymbolAnalyzer {
 			methodIndex = oldMethodIndex;
 		}
 		
-		thisType = ParamType(new ClassType(c), false);
-		thisType.isFinal = true;
+		thisType = Type.get(c).getParamType(false, true);
 		
 		// Update mangle prefix.
 		auto name = c.name.toString(context);
@@ -514,10 +480,10 @@ struct SymbolAnalyzer {
 		c.dscope = c.hasContext
 			? new VoldemortScope(c, oldScope)
 			: new AggregateScope(c, oldScope);
-		
-		auto dscope = c.dscope;
 		currentScope = c.dscope;
-		
+		auto dscope = currentScope;
+		c.definedIn = oldScope;
+
 		Field[] baseFields;
 		Method[] baseMethods;
 		foreach(i; d.bases) {
@@ -550,8 +516,7 @@ struct SymbolAnalyzer {
 		
 		// object.Object, let's do some compiler magic.
 		if(c is c.base) {
-			auto vtblType = QualType(new PointerType(getBuiltin(TypeKind.Void)));
-			vtblType.qualifier = TypeQualifier.Immutable;
+			auto vtblType = Type.get(BuiltinType.Void).getPointer(TypeQualifier.Immutable);
 			
 			// TODO: use defaultinit.
 			auto vtbl = new Field(d.location, 0, vtblType, BuiltinName!"__vtbl", null);
@@ -583,15 +548,14 @@ struct SymbolAnalyzer {
 		
 		if (c.hasContext) {
 			// XXX: check for duplicate.
-			auto ctxPtr = QualType(new PointerType(QualType(ctxType)));
+			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
 			auto ctx = new Field(c.location, fieldIndex++, ctxPtr, BuiltinName!"__ctx", new NullLiteral(c.location, ctxPtr));
 			ctx.step = Step.Processed;
 			
 			baseFields ~= ctx;
 		}
 		
-		auto dv = DeclarationVisitor(pass, AggregateType.Class);
-		auto members = dv.flatten(d.members, c);
+		auto members = DeclarationVisitor(pass, AggregateType.Class).flatten(d.members, c);
 		
 		c.step = Step.Signed;
 		
@@ -602,35 +566,35 @@ struct SymbolAnalyzer {
 				
 				auto mt = method.type;
 				auto rt = mt.returnType;
-				auto ats = mt.paramTypes[1 .. $];
+				auto ats = mt.parameters[1 .. $];
 				
 				CandidatesLoop: foreach(ref candidate; baseMethods) {
-					if(!candidate || method.name != candidate.name) {
+					if (!candidate || method.name != candidate.name) {
 						continue;
 					}
 					
 					auto ct = candidate.type;
-					if(!ct || ct.isVariadic != mt.isVariadic) {
+					if (ct.isVariadic != mt.isVariadic) {
 						continue;
 					}
 					
 					auto crt = ct.returnType;
-					auto cts = ct.paramTypes[1 .. $];
-					if(ats.length != cts.length || rt.isRef != crt.isRef) {
+					auto cts = ct.parameters[1 .. $];
+					if (ats.length != cts.length || rt.isRef != crt.isRef) {
 						continue;
 					}
 					
-					if(implicitCastFrom(pass, QualType(rt.type), QualType(crt.type)) < CastKind.Exact) {
+					if (implicitCastFrom(pass, rt.getType(), crt.getType()) < CastKind.Exact) {
 						continue;
 					}
 					
 					import std.range;
 					foreach(at, ct; lockstep(ats, cts)) {
-						if(at.isRef != ct.isRef) {
+						if (at.isRef != ct.isRef) {
 							continue CandidatesLoop;
 						}
 						
-						if(implicitCastFrom(pass, QualType(ct.type), QualType(at.type)) < CastKind.Exact) {
+						if (implicitCastFrom(pass, ct.getType(), at.getType()) < CastKind.Exact) {
 							continue CandidatesLoop;
 						}
 					}
@@ -696,9 +660,9 @@ struct SymbolAnalyzer {
 		c.step = Step.Processed;
 	}
 	
-	void analyze(EnumDeclaration d, Enum e) {
+	void analyze(EnumDeclaration d, Enum e) in {
 		assert(e.name.isDefined, "anonymous enums must be flattened !");
-		
+	} body {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		
@@ -709,16 +673,15 @@ struct SymbolAnalyzer {
 		
 		currentScope = e.dscope = new SymbolScope(e, oldScope);
 		
-		e.type = tv.visit(d.type).type;
-		auto type = new EnumType(e);
+		import d.semantic.type : TypeVisitor;
+		e.type = d.type.isAuto
+			? Type.get(BuiltinType.Int)
+			: TypeVisitor(pass).visit(d.type);
 		
-		TypeKind kind;
-		if(auto t = cast(BuiltinType) e.type) {
-			assert(isIntegral(t.kind), "enum are of integer type.");
-			kind = t.kind;
-		} else {
-			assert(0, "enum are of integer type.");
-		}
+		auto type = Type.get(e);
+		
+		assert(e.type.kind == TypeKind.Builtin && isIntegral(e.type.builtin), "enum are of integer type.");
+		auto bt = e.type.builtin;
 		
 		auto name = e.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
@@ -727,7 +690,7 @@ struct SymbolAnalyzer {
 		e.mangle = "E" ~ manglePrefix;
 		
 		foreach(vd; d.entries) {
-			auto v = new Variable(vd.location, QualType(type), vd.name);
+			auto v = new Variable(vd.location, type, vd.name);
 			
 			v.storage = Storage.Enum;
 			v.step = Step.Processed;
@@ -747,17 +710,16 @@ struct SymbolAnalyzer {
 			
 			if(vd.value) {
 				import d.semantic.expression;
-				auto ev = ExpressionVisitor(pass);
-				v.value = ev.visit(vd.value);
+				v.value = ExpressionVisitor(pass).visit(vd.value);
 			} else {
 				if(previous) {
 					if(!one) {
-						one = new IntegerLiteral!true(vd.location, 1, kind);
+						one = new IntegerLiteral!true(vd.location, 1, bt);
 					}
 					
-					v.value = new BinaryExpression(vd.location, QualType(e.type), BinaryOp.Add, previous, one);
+					v.value = new BinaryExpression(vd.location, type, BinaryOp.Add, previous, one);
 				} else {
-					v.value = new IntegerLiteral!true(vd.location, 0, kind);
+					v.value = new IntegerLiteral!true(vd.location, 0, bt);
 				}
 			}
 			
@@ -784,14 +746,15 @@ struct SymbolAnalyzer {
 		t.parameters.length = d.parameters.length;
 		
 		// Register parameter int the scope.
-		auto none = getBuiltin(TypeKind.None);
+		auto none = Type.get(BuiltinType.None);
 		foreach_reverse(i, p; d.parameters) {
 			if(auto atp = cast(AstTypeTemplateParameter) p) {
 				auto tp = new TypeTemplateParameter(atp.location, atp.name, cast(uint) i, none, none);
 				currentScope.addSymbol(tp);
 				
-				tp.specialization = tv.visit(atp.specialization);
-				tp.defaultValue = tv.visit(atp.defaultValue);
+				import d.semantic.type : TypeVisitor;
+				tp.specialization = TypeVisitor(pass).visit(atp.specialization);
+				tp.defaultValue = TypeVisitor(pass).visit(atp.defaultValue);
 				
 				tp.step = Step.Signed;
 				t.parameters[i] = tp;
@@ -799,7 +762,8 @@ struct SymbolAnalyzer {
 				auto vp = new ValueTemplateParameter(avp.location, avp.name, cast(uint) i, none);
 				currentScope.addSymbol(vp);
 				
-				vp.type = tv.visit(avp.type);
+				import d.semantic.type : TypeVisitor;
+				vp.type = TypeVisitor(pass).visit(avp.type);
 				
 				vp.step = Step.Signed;
 				t.parameters[i] = vp;
@@ -813,7 +777,8 @@ struct SymbolAnalyzer {
 				auto tap = new TypedAliasTemplateParameter(atap.location, atap.name, cast(uint) i, none);
 				currentScope.addSymbol(tap);
 				
-				tap.type = tv.visit(atap.type);
+				import d.semantic.type : TypeVisitor;
+				tap.type = TypeVisitor(pass).visit(atap.type);
 				
 				tap.step = Step.Signed;
 				t.parameters[i] = tap;
@@ -831,7 +796,8 @@ struct SymbolAnalyzer {
 					continue;
 				}
 				
-				t.ifti = fun.params.map!(p => tv.visit(p.type)).map!(t => QualType(t.type, t.qualifier)).array();
+				import d.semantic.type : TypeVisitor;
+				t.ifti = fun.params.map!(p => TypeVisitor(pass).visit(p.type).getType()).array();
 				break;
 			}
 		}
@@ -842,12 +808,12 @@ struct SymbolAnalyzer {
 	void analyze(Template t, TemplateInstance i) {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
-		auto oldCtxType = ctxType;
+		auto oldCtxSym = ctxSym;
 		
 		scope(exit) {
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
-			ctxType = oldCtxType;
+			ctxSym = oldCtxSym;
 		}
 		
 		manglePrefix = i.mangle;
@@ -859,8 +825,7 @@ struct SymbolAnalyzer {
 				assert(t.storage >= Storage.Static, "template can only have one context");
 				
 				import d.semantic.closure;
-				auto cf = ContextFinder(pass);
-				ctxType = cf.visit(s);
+				ctxSym = ContextFinder(pass).visit(s);
 				
 				i.storage = Storage.Local;
 			}

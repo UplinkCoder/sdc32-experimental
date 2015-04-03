@@ -8,6 +8,7 @@ import d.ast.dmodule;
 import d.exception;
 
 import sdc.conf;
+//import d.llvm.backend:BackendParams;
 import sdc.sdc;
 import sdc.terminal;
 
@@ -25,11 +26,13 @@ int main(string[] args) {
 	}
 	
 	auto conf = buildConf();
-	
+//	BackendParams beParams;
+
 	string[] includePath;
 	string[] libPath;
 	string[] versions;
 	uint optLevel;
+	bool testMode;
 	bool dontLink;
 	uint bitWidth;
 	bool outputSrc;
@@ -39,12 +42,13 @@ int main(string[] args) {
 		args, std.getopt.config.caseSensitive,
 		"I", &includePath,
 		"L", &libPath,
+		"test", &testMode,
 		"O", &optLevel,
 		"c", &dontLink,
-		"m",&bitWidth,
-		"s",&outputSrc,
-		"version",&versions,
-		"output-bc",&outputBc,
+		"m", &bitWidth,
+		"s", &outputSrc,
+		"version", &versions,
+		"output-bc", &outputBc,
 		"o", &outputFile,
 		"help|h", delegate() {
 			import std.stdio;
@@ -72,6 +76,11 @@ int main(string[] args) {
 			assert(0,"Unspported arguemt to -m");
 	}
 
+	if (testMode) {
+		import sdc.tester;
+		return Tester(conf, versions).runTests();
+	}
+
 	auto files = args[1 .. $];
 	if (files.length<1) {
 		import std.stdio;
@@ -89,10 +98,11 @@ int main(string[] args) {
 		}
 	}
 	
-	auto sdc = new SDC(files[0], conf, optLevel, versions);
+
 	import std.stdio;
-	writeln(files);
 	try {
+		auto sdc = new SDC(files[0], conf, "", versions);
+
 		foreach(file; files) {
 			sdc.compile(file);
 		}

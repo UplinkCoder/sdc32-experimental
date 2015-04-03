@@ -1,364 +1,585 @@
 module d.ir.type;
 
-// XXX: type qualifiers, refactor.
-import d.ast.base;
-import d.ast.qualtype;
-import d.ast.type;
+import d.ir.symbol;
 
-class Type : AstType {
-	protected this() {}
-}
+public import d.base.builtintype;
+public import d.base.qualifier;
 
-alias QualType = d.ast.qualtype.QualType!Type;
-alias ParamType = d.ast.qualtype.ParamType!Type;
-alias PointerType = d.ast.qualtype.PointerType!Type;
-alias SliceType = d.ast.qualtype.SliceType!Type;
-alias AssociativeArrayType = d.ast.qualtype.AssociativeArrayType!Type;
-alias FunctionType = d.ast.qualtype.FunctionType!Type;
-alias DelegateType = d.ast.qualtype.DelegateType!Type;
+import d.base.type;
 
-enum TypeKind {
-	None,
-	Void,
-	Bool,
-	Char,
-	Wchar,
-	Dchar,
-	Ubyte,
-	Ushort,
-	Uint,
-	Ulong,
-	Ucent,
-	Byte,
-	Short,
-	Int,
-	Long,
-	Cent,
-	Float,
-	Double,
-	Real,
-	Null,
-}
+import d.context;
 
-bool isChar(TypeKind t) {
-	return (t >= TypeKind.Char) && (t <= TypeKind.Dchar);
-}
+// Conflict with Interface in object.di
+alias Interface = d.ir.symbol.Interface;
 
-TypeKind integralOfChar(TypeKind t) in {
-	assert(isChar(t), "integralOfChar only apply to character types");
-} body {
-	return cast(TypeKind) (t + 3);
-}
-
-unittest {
-	assert(integralOfChar(TypeKind.Char) == TypeKind.Ubyte);
-	assert(integralOfChar(TypeKind.Wchar) == TypeKind.Ushort);
-	assert(integralOfChar(TypeKind.Dchar) == TypeKind.Uint);
-}
-
-bool isIntegral(TypeKind t) {
-	return (t >= TypeKind.Ubyte) && (t <= TypeKind.Cent);
-}
-
-bool isSigned(TypeKind t) in {
-	assert(isIntegral(t), "isSigned only apply to integral types");
-} body {
-	return signed(t) == t;
-}
-
-TypeKind unsigned(TypeKind t) in {
-	assert(isIntegral(t), "unsigned only apply to integral types");
-} body {
-	switch(t) with(TypeKind) {
-		case Ubyte:
-		case Ushort:
-		case Uint:
-		case Ulong:
-		case Ucent:
-			return t;
-		
-		case Byte:
-		case Short:
-		case Int:
-		case Long:
-		case Cent:
-			return cast(TypeKind) (t - 5);
-		
-		default:
-			assert(0, "unsigned only apply for integral types.");
-	}
-}
-
-TypeKind signed(TypeKind t) in {
-	assert(isIntegral(t), "signed only apply to integral types");
-} body {
-	switch(t) with(TypeKind) {
-		case Ubyte:
-		case Ushort:
-		case Uint:
-		case Ulong:
-		case Ucent:
-			return cast(TypeKind) (t + 5);
-		
-		case Byte:
-		case Short:
-		case Int:
-		case Long:
-		case Cent:
-			return t;
-		
-		default:
-			assert(0, "signed only apply for integral types.");
-	}
-}
-
-unittest {
-	assert(unsigned(TypeKind.Ubyte) == TypeKind.Ubyte);
-	assert(unsigned(TypeKind.Ushort) == TypeKind.Ushort);
-	assert(unsigned(TypeKind.Uint) == TypeKind.Uint);
-	assert(unsigned(TypeKind.Ulong) == TypeKind.Ulong);
-	assert(unsigned(TypeKind.Ucent) == TypeKind.Ucent);
-	assert(unsigned(TypeKind.Byte) == TypeKind.Ubyte);
-	assert(unsigned(TypeKind.Short) == TypeKind.Ushort);
-	assert(unsigned(TypeKind.Int) == TypeKind.Uint);
-	assert(unsigned(TypeKind.Long) == TypeKind.Ulong);
-	assert(unsigned(TypeKind.Cent) == TypeKind.Ucent);
+enum TypeKind : ubyte {
+	Builtin,
 	
-	assert(signed(TypeKind.Ubyte) == TypeKind.Byte);
-	assert(signed(TypeKind.Ushort) == TypeKind.Short);
-	assert(signed(TypeKind.Uint) == TypeKind.Int);
-	assert(signed(TypeKind.Ulong) == TypeKind.Long);
-	assert(signed(TypeKind.Ucent) == TypeKind.Cent);
-	assert(signed(TypeKind.Byte) == TypeKind.Byte);
-	assert(signed(TypeKind.Short) == TypeKind.Short);
-	assert(signed(TypeKind.Int) == TypeKind.Int);
-	assert(signed(TypeKind.Long) == TypeKind.Long);
-	assert(signed(TypeKind.Cent) == TypeKind.Cent);
-}
-
-bool isFloat(TypeKind t) {
-	return (t >= TypeKind.Float) && (t <= TypeKind.Real);
-}
-
-final:
-/**
- * Closure context pointer
- */
-class ContextType : Type {
-	import d.ir.symbol;
-	Function fun;
+	// Symbols
+	Alias,
+	Struct,
+	Class,
+	Interface,
+	Union,
+	Enum,
 	
-	this(Function fun) {
-		this.fun = fun;
-	}
+	// Context
+	Context,
+	
+	// Type constructors
+	Pointer,
+	Slice,
+	Array,
+	
+	// Sequence
+	Sequence,
+	
+	// Complex types
+	Function,
+	
+	// Template type
+	Template,
 }
 
-/**
- * builtin types
- */
-class BuiltinType : Type {
-	TypeKind kind;
+struct Type {
+private:
+	mixin TypeMixin!(TypeKind, Payload);
 	
-	this(TypeKind kind) {
-		this.kind = kind;
+	this(Desc d, inout Payload p = Payload.init) inout {
+		desc = d;
+		payload = p;
 	}
 	
-	override string toString(Context, TypeQualifier) const {
-		final switch (kind) with(TypeKind) {
-			case None :
-				return "__none__";
+	import util.fastcast;
+	this(Desc d, inout Symbol s) inout {
+		this(d, fastCast!(inout Payload)(s));
+	}
+	
+	this(Desc d, inout Type* t) inout {
+		this(d, fastCast!(inout Payload)(t));
+	}
+	
+	Type getConstructedType(this T)(TypeKind k, TypeQualifier q) {
+		return qualify(q).getConstructedMixin(k, q);
+	}
+	
+	auto acceptImpl(T)(T t) {
+		final switch(kind) with(TypeKind) {
+			case Builtin :
+				return t.visit(builtin);
 			
-			case Void :
-				return "void";
+			case Struct :
+				return t.visit(dstruct);
 			
-			case Bool :
-				return "bool";
+			case Class :
+				return t.visit(dclass);
 			
-			case Char :
-				return "char";
+			case Enum :
+				return t.visit(denum);
 			
-			case Wchar :
-				return "wchar";
+			case Alias :
+				// XXX: consider how to propagate the qualifier properly.
+				return t.visit(dalias);
 			
-			case Dchar :
-				return "dchar";
+			case Interface :
+				return t.visit(dinterface);
 			
-			case Ubyte :
-				return "ubyte";
+			case Union :
+				return t.visit(dunion);
 			
-			case Ushort :
-				return "ushort";
+			case Context :
+				return t.visit(context);
 			
-			case Uint :
-				return "uint";
+			case Pointer :
+				return t.visitPointerOf(element);
 			
-			case Ulong :
-				return "ulong";
+			case Slice :
+				return t.visitSliceOf(element);
 			
-			case Ucent :
-				return "ucent";
+			case Array :
+				return t.visitArrayOf(size, element);
 			
-			case Byte :
-				return "byte";
+			case Sequence :
+				return t.visit(sequence);
 			
-			case Short :
-				return "short";
+			case Function :
+				return t.visit(asFunctionType());
 			
-			case Int :
-				return "int";
-			
-			case Long :
-				return "long";
-			
-			case Cent :
-				return "cent";
-			
-			case Float :
-				return "float";
-			
-			case Double :
-				return "double";
-			
-			case Real :
-				return "real";
-			
-			case Null :
-				return "typeof(null)";
+			case Template :
+				return t.visit(dtemplate);
 		}
 	}
-}
-
-QualType getBuiltin(TypeKind k) {
-	return QualType(new BuiltinType(k));
-}
-
-/**
- * An Error occured but an Type is expected.
- * Useful for speculative compilation.
- */
-class ErrorType : Type {
-	Location location;
-	string message;
 	
-	this(Location location, string message = "") {
-		this.location = location;
-		this.message = message;
-	}
-}
-
-/**
- * Array type
- */
-class ArrayType : Type {
-	QualType elementType;
-	ulong size;
-	
-	this(QualType elementType, ulong size) {
-		this.elementType = elementType;
-		this.size = size;
+public:
+	auto accept(T)(ref T t) if(is(T == struct)) {
+		return acceptImpl(&t);
 	}
 	
-	override string toString(Context ctx, TypeQualifier qual) const {
-		import std.conv;
-		return elementType.toString(ctx, qual) ~ "[" ~ to!string(size) ~ "]";
-	}
-}
-
-/**
- * Aliased type.
- * Type created via an alias declaration.
- */
-class AliasType : Type {
-	import d.ir.symbol;
-	TypeAlias dalias;
-	
-	this(TypeAlias dalias) {
-		this.dalias = dalias;
+	auto accept(T)(T t) if(is(T == class)) {
+		return acceptImpl(t);
 	}
 	
-	override string toString(Context ctx, TypeQualifier) const {
-		return dalias.name.toString(ctx);
-	}
-}
-
-QualType peelAlias(QualType t) {
-	if(auto a = cast(AliasType) t.type) {
-		auto ret = peelAlias(a.dalias.type);
-		ret.qualifier = ret.qualifier.add(t.qualifier);
+	Type qualify(TypeQualifier q) {
+		auto nq = q.add(qualifier);
+		if (nq == qualifier) {
+			return Type(desc, payload);
+		}
 		
-		return ret;
+		switch(kind) with(TypeKind) {
+			case Builtin, Struct, Class, Enum, Alias, Interface, Union, Context, Function :
+				auto d = desc;
+				d.qualifier = nq;
+				return Type(d, payload);
+			
+			case Pointer :
+				return element.qualify(nq).getPointer(nq);
+			
+			case Slice :
+				return element.qualify(nq).getSlice(nq);
+			
+			case Array :
+				return element.qualify(nq).getArray(size, nq);
+			
+			default :
+				assert(0, "Not implemented");
+		}
 	}
 	
-	return t;
+	Type unqual() {
+		auto d = desc;
+		d.qualifier = TypeQualifier.Mutable;
+		return Type(d, payload);
+	}
+	
+	@property
+	BuiltinType builtin() inout in {
+		assert(kind == TypeKind.Builtin);
+	} body {
+		return cast(BuiltinType) desc.data;
+	}
+	
+	bool isAggregate() const {
+		return (kind >= TypeKind.Struct) && (kind <= TypeKind.Union);
+	}
+	
+	@property
+	auto aggregate() inout in {
+		assert(isAggregate, "Not an aggregate type.");
+	} body {
+		return payload.agg;
+	}
+	
+	@property
+	auto dstruct() inout in {
+		assert(kind == TypeKind.Struct);
+	} body {
+		return payload.dstruct;
+	}
+	
+	@property
+	auto dclass() inout in {
+		assert(kind == TypeKind.Class);
+	} body {
+		return payload.dclass;
+	}
+	
+	@property
+	auto denum() inout in {
+		assert(kind == TypeKind.Enum);
+	} body {
+		return payload.denum;
+	}
+	
+	@property
+	auto dalias() inout in {
+		assert(kind == TypeKind.Alias);
+	} body {
+		return payload.dalias;
+	}
+	
+	Type getCanonical() {
+		if (kind != TypeKind.Alias) {
+			return this;
+		}
+		
+		return dalias.type.getCanonical().qualify(qualifier);
+	}
+	
+	@property
+	auto dinterface() inout in {
+		assert(kind == TypeKind.Interface);
+	} body {
+		return payload.dinterface;
+	}
+	
+	@property
+	auto dunion() inout in {
+		assert(kind == TypeKind.Union);
+	} body {
+		return payload.dunion;
+	}
+	
+	@property
+	auto context() inout in {
+		assert(kind == TypeKind.Context);
+	} body {
+		return payload.context;
+	}
+	
+	@property
+	auto dtemplate() inout in {
+		assert(kind == TypeKind.Template);
+	} body {
+		return payload.dtemplate;
+	}
+	
+	Type getPointer(TypeQualifier q = TypeQualifier.Mutable) {
+		return getConstructedType(TypeKind.Pointer, q);
+	}
+	
+	Type getSlice(TypeQualifier q = TypeQualifier.Mutable) {
+		return getConstructedType(TypeKind.Slice, q);
+	}
+	
+	Type getArray(ulong size, TypeQualifier q = TypeQualifier.Mutable) {
+		auto t = qualify(q);
+		
+		// XXX: Consider caching in context.
+		auto n = new Type(t.desc, t.payload);
+		return Type(Desc(TypeKind.Array, q, size), n);
+	}
+	
+	bool hasElement() const {
+		return (kind >= TypeKind.Pointer) && (kind <= TypeKind.Array);
+	}
+	
+	@property
+	auto element() inout in {
+		assert(hasElement, "element called on a type with no element.");
+	} body {
+		if (kind == TypeKind.Array) {
+			return *payload.next;
+		}
+		
+		return getElementMixin();
+	}
+	
+	@property
+	uint size() const in {
+		assert(kind == TypeKind.Array, "Only array have size.");
+	} body {
+		return cast(uint) desc.data;
+	}
+	
+	@property
+	auto sequence() inout in {
+		assert(kind == TypeKind.Sequence, "Not a sequence type.");
+	} body {
+		return payload.next[0 .. desc.data];
+	}
+	
+	bool hasPointerABI() const {
+		switch (kind) with(TypeKind) {
+			case Class, Pointer :
+				return true;
+			
+			case Alias :
+				return dalias.type.hasPointerABI();
+			
+			case Function :
+				return asFunctionType().contexts.length == 0;
+			
+			default :
+				return false;
+		}
+	}
+	
+	string toString(Context c, TypeQualifier q = TypeQualifier.Mutable) const {
+		auto s = toUnqualString(c);
+		if (q == qualifier) {
+			return s;
+		}
+		
+		final switch(qualifier) with(TypeQualifier) {
+			case Mutable:
+				return s;
+			
+			case Inout:
+				return "inout(" ~ s ~ ")";
+			
+			case Const:
+				return "const(" ~ s ~ ")";
+			
+			case Shared:
+				return "shared(" ~ s ~ ")";
+			
+			case ConstShared:
+				assert(0, "const shared isn't supported");
+			
+			case Immutable:
+				return "immutable(" ~ s ~ ")";
+		}
+	}
+	
+	string toUnqualString(Context c) const {
+		final switch(kind) with(TypeKind) {
+			case Builtin :
+				import d.base.builtintype : toString;
+				return toString(builtin);
+			
+			case Struct :
+				return dstruct.name.toString(c);
+			
+			case Class :
+				return dclass.name.toString(c);
+			
+			case Enum :
+				return denum.name.toString(c);
+			
+			case Alias :
+				return dalias.name.toString(c);
+			
+			case Interface :
+				return dinterface.name.toString(c);
+			
+			case Union :
+				return dunion.name.toString(c);
+			
+			case Context :
+				return "__ctx";
+			
+			case Pointer :
+				return element.toString(c, qualifier) ~ "*";
+			
+			case Slice :
+				return element.toString(c, qualifier) ~ "[]";
+			
+			case Array :
+				import std.conv;
+				return element.toString(c, qualifier) ~ "[" ~ to!string(size) ~ "]";
+			
+			case Sequence :
+				import std.algorithm, std.range;
+				// XXX: need to use this because of identifier hijacking in the import.
+				return this.sequence.map!(e => e.toString(c, qualifier)).join(", ");
+			
+			case Function :
+				auto f = asFunctionType();
+				auto ret = f.returnType.toString(c);
+				auto base = f.contexts.length ? " delegate(" : " function(";
+				import std.algorithm, std.range;
+				auto args = f.parameters.map!(p => p.toString(c)).join(", ");
+				return ret ~ base ~ args ~ (f.isVariadic ? ", ...)" : ")");
+			
+			case Template :
+				return dtemplate.name.toString(c);
+		}
+	}
+	
+static:
+	Type get(BuiltinType bt, TypeQualifier q = TypeQualifier.Mutable) {
+		Payload p; // Needed because of lolbug in inout
+		return Type(Desc(TypeKind.Builtin, q, bt), p);
+	}
+	
+	Type get(Struct s, TypeQualifier q = TypeQualifier.Mutable) {
+		return Type(Desc(TypeKind.Struct, q), s);
+	}
+	
+	Type get(Class c, TypeQualifier q = TypeQualifier.Mutable) {
+		return Type(Desc(TypeKind.Class, q), c);
+	}
+	
+	Type get(Enum e, TypeQualifier q = TypeQualifier.Mutable) {
+		return Type(Desc(TypeKind.Enum, q), e);
+	}
+	
+	Type get(TypeAlias a, TypeQualifier q = TypeQualifier.Mutable) {
+		return Type(Desc(TypeKind.Alias, q), a);
+	}
+	
+	Type get(Interface i, TypeQualifier q = TypeQualifier.Mutable) {
+		return Type(Desc(TypeKind.Interface, q), i);
+	}
+	
+	Type get(Union u, TypeQualifier q = TypeQualifier.Mutable) {
+		return Type(Desc(TypeKind.Union, q), u);
+	}
+	
+	Type get(Type[] elements, TypeQualifier q = TypeQualifier.Mutable) {
+		return Type(Desc(TypeKind.Sequence, q, elements.length), elements.ptr);
+	}
+	
+	Type get(TypeTemplateParameter p, TypeQualifier q = TypeQualifier.Mutable) {
+		return Type(Desc(TypeKind.Template, q), p);
+	}
+	
+	Type getContextType(Function f, TypeQualifier q = TypeQualifier.Mutable) {
+		return Type(Desc(TypeKind.Context, q), f);
+	}
 }
 
-Type peelAlias(Type t) {
-	if(auto a = cast(AliasType) t) {
-		return peelAlias(a.dalias.type).type;
-	}
+unittest {
+	auto i = Type.get(BuiltinType.Int);
+	auto pi = i.getPointer();
+	assert(i == pi.element);
 	
-	return t;
+	auto ci = i.qualify(TypeQualifier.Const);
+	auto cpi = pi.qualify(TypeQualifier.Const);
+	assert(ci == cpi.element);
+	assert(i != cpi.element);
 }
 
-/**
- * Struct type.
- * Type created via a struct declaration.
- */
-class StructType : Type {
-	import d.ir.symbol;
-	Struct dstruct;
-	
-	this(Struct dstruct) {
-		this.dstruct = dstruct;
+unittest {
+	auto i = Type.get(BuiltinType.Int);
+	auto t = i;
+	foreach(_; 0 .. 64) {
+		t = t.getPointer().getSlice();
 	}
 	
-	override string toString(Context ctx, TypeQualifier) const {
-		return dstruct.toString(ctx);
+	foreach(_; 0 .. 64) {
+		assert(t.kind == TypeKind.Slice);
+		t = t.element;
+		assert(t.kind == TypeKind.Pointer);
+		t = t.element;
 	}
+	
+	assert(t == i);
 }
 
-/**
- * Class type.
- * Type created via a class declaration.
- */
-class ClassType : Type {
-	import d.ir.symbol;
+unittest {
+	auto i = Type.get(BuiltinType.Int);
+	auto ai = i.getArray(42);
+	assert(i == ai.element);
+	assert(ai.size == 42);
+}
+
+unittest {
+	auto i = Type.get(BuiltinType.Int);
+	auto ci = Type.get(BuiltinType.Int, TypeQualifier.Const);
+	auto cpi = i.getPointer(TypeQualifier.Const);
+	assert(ci == cpi.element);
+	
+	auto csi = i.getSlice(TypeQualifier.Const);
+	assert(ci == csi.element);
+	
+	auto cai = i.getArray(42, TypeQualifier.Const);
+	assert(ci == cai.element);
+}
+
+unittest {
+	import d.context, d.location, d.ir.symbol;
+	auto c = new Class(Location.init, BuiltinName!"", []);
+	auto tc = Type.get(c);
+	assert(tc.isAggregate);
+	assert(tc.aggregate is c);
+	
+	auto cc = Type.get(c, TypeQualifier.Const);
+	auto csc = tc.getSlice(TypeQualifier.Const);
+	assert(cc == csc.element);
+}
+
+alias ParamType = Type.ParamType;
+
+string toString(const ParamType t, Context c) {
+	string s;
+	if (t.isRef && t.isFinal) {
+		s = "final ref ";
+	} else if (t.isRef) {
+		s = "ref ";
+	} else if (t.isFinal) {
+		s = "final ";
+	}
+	
+	return s ~ t.getType().toString(c);
+}
+
+inout(ParamType) getParamType(inout ParamType t, bool isRef, bool isFinal) {
+	return t.getType().getParamType(isRef, isFinal);
+}
+
+unittest {
+	auto pi = Type.get(BuiltinType.Int).getPointer(TypeQualifier.Const);
+	auto p = pi.getParamType(true, false);
+	
+	assert(p.isRef == true);
+	assert(p.isFinal == false);
+	assert(p.qualifier == TypeQualifier.Const);
+	
+	auto pt = p.getType();
+	assert(pt == pi);
+}
+
+alias FunctionType = Type.FunctionType;
+
+unittest {
+	auto r = Type.get(BuiltinType.Void).getPointer().getParamType(false, false);
+	auto c = Type.get(BuiltinType.Null).getSlice().getParamType(false, true);
+	auto p = Type.get(BuiltinType.Float).getSlice(TypeQualifier.Immutable).getParamType(true, true);
+	auto f = FunctionType(Linkage.Java, r, [c, p], true);
+	
+	assert(f.linkage == Linkage.Java);
+	assert(f.isVariadic == true);
+	assert(f.isPure == false);
+	assert(f.returnType == r);
+	assert(f.parameters.length == 2);
+	assert(f.parameters[0] == c);
+	assert(f.parameters[1] == p);
+	
+	auto ft = f.getType();
+	assert(ft.asFunctionType() == f);
+	
+	auto d = f.getDelegate();
+	assert(d.linkage == Linkage.Java);
+	assert(d.isVariadic == true);
+	assert(d.isPure == false);
+	assert(d.returnType == r);
+	assert(d.contexts.length == 1);
+	assert(d.contexts[0] == c);
+	assert(d.parameters.length == 1);
+	assert(d.parameters[0] == p);
+	
+	auto dt = d.getType();
+	assert(dt.asFunctionType() == d);
+	assert(dt.asFunctionType() != f);
+	
+	auto d2 = d.getDelegate(2);
+	assert(d2.contexts.length == 2);
+	assert(d2.parameters.length == 0);
+	assert(d2.getDelegate(0) == f);
+}
+
+private:
+
+// XXX: we put it as a UFCS property to avoid forward reference.
+@property
+inout(ParamType)* params(inout Payload p) {
+	import util.fastcast;
+	return cast(inout ParamType*) p.next;
+}
+
+union Payload {
+	Type* next;
+	
+	// Symbols
+	TypeAlias dalias;
 	Class dclass;
-	
-	this(Class dclass) {
-		this.dclass = dclass;
-	}
-	
-	override string toString(Context ctx, TypeQualifier) const {
-		return dclass.toString(ctx);
-	}
-}
-
-/**
- * Enum type
- * Type created via a enum declaration.
- */
-class EnumType : Type {
-	import d.ir.symbol;
+	Interface dinterface;
+	Struct dstruct;
+	Union dunion;
 	Enum denum;
 	
-	this(Enum denum) {
-		this.denum = denum;
-	}
+	// Context
+	Function context;
 	
-	override string toString(Context ctx, TypeQualifier) const {
-		return denum.toString(ctx);
-	}
-}
-
-/**
- * Tuples
- */
-class TupleType : Type {
-	QualType[] types;
+	// For function and delegates.
+	// ParamType* params;
 	
-	this(QualType[] types) {
-		this.types = types;
-	}
-}
+	// For template instanciation.
+	TypeTemplateParameter dtemplate;
+	
+	// For simple construction
+	Symbol sym;
+	Aggregate agg;
+};
 

@@ -2,106 +2,144 @@ module d.semantic.type;
 
 import d.semantic.semantic;
 
-import d.ast.base;
-import d.ast.declaration;
+import d.ast.identifier;
 import d.ast.type;
 
 import d.ir.type;
 
-import std.algorithm;
-import std.array;
-
-alias PointerType = d.ir.type.PointerType;
-alias SliceType = d.ir.type.SliceType;
-alias FunctionType = d.ir.type.FunctionType;
-alias DelegateType = d.ir.type.DelegateType;
-alias ArrayType = d.ir.type.ArrayType;
+// XXX: module level for UFCS.
+import std.algorithm, std.array;
 
 struct TypeVisitor {
 	private SemanticPass pass;
 	alias pass this;
 	
-	this(SemanticPass pass) {
+	private TypeQualifier qualifier;
+	
+	this(SemanticPass pass, TypeQualifier qualifier = TypeQualifier.Mutable) {
 		this.pass = pass;
+		this.qualifier = qualifier;
 	}
 	
-	QualType visit(QualAstType t) {
-		return visit(TypeQualifier.Mutable, t);
+	import d.ast.declaration;
+	TypeVisitor withStorageClass(StorageClass stc) {
+		return TypeVisitor(
+			pass,
+			stc.hasQualifier
+				? qualifier.add(stc.qualifier)
+				: qualifier,
+		);
+	}
+	
+	Type visit(AstType t) {
+		return t.accept(this).qualify(t.qualifier);
 	}
 	
 	ParamType visit(ParamAstType t) {
-		auto qt = visit(QualAstType(t.type, t.qualifier));
-		
-		return ParamType(qt, t.isRef);
+		return visit(t.getType()).getParamType(t.isRef, t.isFinal);
 	}
 	
-	QualType visit(TypeQualifier q, QualAstType t) {
-		return this.dispatch(t.qualifier.add(q), t.type);
+	Type visit(BuiltinType t) {
+		return Type.get(t, qualifier);
 	}
 	
-	QualType visit(TypeQualifier q, BuiltinType t) {
-		return QualType(t, q);
-	}
-	
-	QualType visit(TypeQualifier q, TypeofType t) {
-		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
-		
-		auto ret = ev.visit(t.expression).type;
-		ret.qualifier = ret.qualifier.add(q);
-		
-		return ret;
-	}
-	
-	QualType visit(TypeQualifier q, AstPointerType t) {
-		return QualType(new PointerType(visit(q, t.pointed)), q);
-	}
-	
-	QualType visit(TypeQualifier q, AstSliceType t) {
-		return QualType(new SliceType(visit(q, t.sliced)), q);
-	}
-	
-	QualType visit(TypeQualifier q, AstArrayType t) {
-		auto elementType = visit(t.elementType);
-		
-		import d.semantic.caster, d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
-		
-		import d.ir.expression;
-		auto size = (cast(IntegerLiteral!false) evaluate(buildImplicitCast(pass, t.size.location, pass.object.getSizeT().type, ev.visit(t.size)))).value;
-		
-		return QualType(new ArrayType(elementType, size));
-	}
-	
-	QualType visit(TypeQualifier q, AstFunctionType t) {
-		auto returnType = visit(t.returnType);
-		auto paramTypes = t.paramTypes.map!(t => visit(t)).array();
-		
-		return QualType(new FunctionType(t.linkage, returnType, paramTypes, t.isVariadic), q);
-	}
-	
-	QualType visit(TypeQualifier q, AstDelegateType t) {
-		auto returnType = visit(t.returnType);
-		auto context = visit(t.context);
-		auto paramTypes = t.paramTypes.map!(t => visit(t)).array();
-		
-		return QualType(new DelegateType(t.linkage, returnType, context, paramTypes, t.isVariadic), q);
-	}
-	
-	QualType visit(TypeQualifier q, IdentifierType t) {
+	Type visit(Identifier i) {
 		import d.semantic.identifier;
-		return SymbolResolver!(delegate QualType(identified) {
-			static if(is(typeof(identified) : QualType)) {
-				return QualType(identified.type, q.add(identified.qualifier));
+		return SymbolResolver!(delegate Type(identified) {
+			static if(is(typeof(identified) : Type)) {
+				return identified.qualify(qualifier);
 			} else {
-				return pass.raiseCondition!Type(t.identifier.location, t.identifier.name.toString(pass.context) ~ " isn't an type.");
+				return pass.raiseCondition!Type(i.location, i.toString(pass.context) ~ " isn't an type.");
 			}
-		})(pass).visit(t.identifier);
+		})(pass).visit(i);
 	}
 	
-	// XXX: Hack for struct constructor. Should go away.
-	QualType visit(TypeQualifier q, StructType t) {
-		return QualType(t, q);
+	Type visitPointerOf(AstType t) {
+		return visit(t).getPointer(qualifier);
+	}
+	
+	Type visitSliceOf(AstType t) {
+		return visit(t).getSlice(qualifier);
+	}
+	
+	Type visitArrayOf(AstExpression size, AstType t) {
+		auto type = visit(t);
+		
+		import d.semantic.expression;
+		return buildArray(ExpressionVisitor(pass).visit(size), type);
+	}
+	
+	import d.ir.expression;
+	private Type buildArray(Expression size, Type t) {
+		import d.semantic.caster, d.semantic.expression;
+		auto s = evalIntegral(buildImplicitCast(
+			pass,
+			size.location,
+			pass.object.getSizeT().type,
+			size,
+		));
+		
+		return t.getArray(s, qualifier);
+	}
+	
+	Type visitMapOf(AstType key, AstType t) {
+		visit(t);
+		visit(key);
+		assert(0, "Map are not implemented.");
+	}
+	
+	Type visitBracketOf(Identifier ikey, AstType t) {
+		auto type = visit(t);
+		
+		import d.semantic.identifier;
+		return SymbolResolver!(delegate Type(identified) {
+			alias T = typeof(identified);
+			static if (is(T : Type)) {
+				assert(0, "Not implemented.");
+			} else static if (is(T: Expression)) {
+				return buildArray(identified, type);
+			} else {
+				return pass.raiseCondition!Type(ikey.location, ikey.toString(pass.context) ~ " isn't an type.");
+			}
+		})(pass).visit(ikey);
+	}
+	
+	Type visit(FunctionAstType t) {
+		assert(t.contexts.length == 0, "Delegate are not supported.");
+		
+		auto oldQualifier = qualifier;
+		scope(exit) qualifier = oldQualifier;
+		
+		qualifier = TypeQualifier.Mutable;
+		
+		auto returnType = visit(t.returnType);
+		auto paramTypes = t.parameters.map!(t => visit(t)).array();
+		
+		return FunctionType(t.linkage, returnType, paramTypes, t.isVariadic).getType(oldQualifier);
+	}
+	/+
+	Type visit(AstDelegateType t) {
+		auto contextType = visit(t.context);
+		
+		auto oldQualifier = qualifier;
+		scope(exit) qualifier = oldQualifier;
+		
+		qualifier = TypeQualifier.Mutable;
+		
+		auto returnType = visit(t.returnType);
+		auto paramTypes = t.paramTypes.map!(t => visit(t)).array();
+		
+		return FunctionType(t.linkage, returnType, contextType, paramTypes, t.isVariadic).getType(oldQualifier);
+	}
+	+/
+	import d.ast.expression;
+	Type visit(AstExpression e) {
+		import d.semantic.expression;
+		return ExpressionVisitor(pass).visit(e).type.qualify(qualifier);
+	}
+	
+	Type visitTypeOfReturn() {
+		assert(0, "typeof(return) is not implemented.");
 	}
 }
 

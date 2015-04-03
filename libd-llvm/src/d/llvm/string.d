@@ -27,12 +27,12 @@ final class StringGen {
 			LLVMSetInitializer(globalVar, charArray);
 			LLVMSetLinkage(globalVar, LLVMLinkage.Private);
 			LLVMSetGlobalConstant(globalVar, true);
-
-			auto length = LLVMConstInt(pass.getPtrTypeInContext(pass.llvmCtx), str.length, false);
+			
+			auto length = LLVMConstInt(LLVMInt64TypeInContext(pass.llvmCtx), str.length, false);
 			
 			/*
 			// skip 0 termination.
-			auto indices = [LLVMConstInt(pass.getPtrTypeInContext(pass.llvmCtx), 0, true), LLVMConstInt(pass.getPtrTypeInContext(pass.llvmCtx), 0, true)];
+			auto indices = [LLVMConstInt(LLVMInt64TypeInContext(pass.llvmCtx), 0, true), LLVMConstInt(LLVMInt64TypeInContext(pass.llvmCtx), 0, true)];
 			auto ptr = LLVMBuildInBoundsGEP(pass.builder, globalVar, indices.ptr, 2, "");
 			/*/
 			// with 0 termination.
