@@ -4,7 +4,7 @@
 // Test IFTI with explicit and implicit parameter.
 
 int foo()(int i) {
-	return i + bar!int(13);
+	return i + bar!int(9);
 }
 
 template Qux(T : U*, U) {
@@ -17,11 +17,12 @@ auto bar(T)(T t) {
 
 int main() {
 	auto a = Qux!(float*);
-	//assert(a == 12);
+	assert(a == 12);
 	
 	a += Qux!(int*, int);
-	//assert(a == 24);
+	assert(a == 24);
 	
-	return foo(a) + bar(5);
+	return foo(a) + bar(4) + buzz(5);
 }
 
+alias buzz = bar!uint;

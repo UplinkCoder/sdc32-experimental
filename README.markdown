@@ -1,22 +1,20 @@
-SDC32 - The Stupid D Compiler - EXPERIMENTAL 32BIT FORK  [![Build Status](https://travis-ci.org/UplinkCoder/sdc32-experimental.svg?branch=master)](https://travis-ci.org/UplinkCoder/sdc32-experimental)
+SDC - The Stupid D Compiler
 ===========================
-This is _not_ the home of a [D](http://dlang.org/) compiler.
+This is the home of a [D](http://dlang.org/) compiler.
 SDC is at the moment, particularly stupid; it is a work in progress. Feel free to poke around, but don't expect it to compile your code.
 
-This compiler is based on [libd](https://github.com/deadalnix/libd) for D code analysis. It uses [LLVM](http://llvm.org/) and [libd-llvm](https://github.com/deadalnix/libd-llvm) for codegen and JIT CTFE.
+This compiler is based on [libd](https://github.com/deadalnix/SDC/tree/master/libd) for D code analysis. It uses [LLVM](http://llvm.org/) and [libd-llvm](https://github.com/deadalnix/SDC/tree/master/libd-llvm) for codegen and JIT CTFE. It uses [libsdrt](https://github.com/deadalnix/SDC/tree/master/libsdrt) to support various runtime facilities required by programs compiled by SDC.
 
 The code is released under the MIT license (see the LICENCE file for more details).
-Contact the original authoer at deadalnix@gmail.com.
+Contact me at deadalnix@gmail.com
 
-If you have problems with my fork that don't happen on deadalnix's original repo please feel free to open issuses here 
-
-SDC require DMD release `2.065` to compile.
+SDC requires DMD release `2.067` to compile.
 
 Goals
 ========
-Right now, SDC is a work in progress and unusable for any production work. It intends to provide a D compiler as a library (libd) in order to improve overall D toolchain by enabling the possibility of develloping new tools.
+Right now, SDC is a work in progress and unusable for any production work. Its intent is to provide a D compiler as a library (libd) in order to improve the overall D toolchain by enabling the possibility of developing new tools.
 
-SDC now support many very advanced feature of (static ifs, string mixins, CTFE) but not many basic ones. This is a devellopement choice to allow the architecturing of the compiler around the hardest features of the language. As a consequence, SDC is a solid base to build upon.
+SDC now supports many very advanced features (static ifs, string mixins, CTFE) of D, but not many basic ones. This is a development choice to allow the architecturing of the compiler around the hardest features of the language. As a consequence, SDC has a solid base to build upon.
 
 What Can It Compile?
 ====================
@@ -47,14 +45,21 @@ This just me thinking outloud about what features I want, when.
 Compiling SDC on Linux
 =======
 You'll need `make` and the latest DMD installed.
-Install LLVM 3.4.
+Install LLVM 3.5.
 
 Run `make`.
 
 Then you can compile `runner.d` with `dmd` and run it to run the test suites. There should be no regressions.
-SDC contains le lot of hardcoded PATH right now, so it hard to integrate properly with the system. It expect object.d to be in ../libs/object.d
+SDC contains a lot of hardcoded PATH right now, so it's hard to integrate properly with the system. It expects object.d to be in ../libs/object.d
 
-SDC require LLVM 3.4 . if the default llvm-config on your system is an older version, you can specify a newer version via `LLVM_CONFIG`. For instance, on a debian system, you want to use `make LLVM_CONFIG=llvm-config-3.4` .
+SDC requires LLVM 3.5 . If the default llvm-config on your system is an older version, you can specify a newer version via `LLVM_CONFIG`. For instance, on a debian system, you want to use `make LLVM_CONFIG=llvm-config-3.5` .
 
-### Running tests
-To run the tests, execute `sh buildTester.sh && ./convtest` to build the test-runner application found in `tests/`, then run it with `./jsonRunner`.
+Compiling SDC on Mac OS X
+=======
+You'll need `make` and the latest DMD installed. You'll also need llvm35 if you don't already have it. One way to install llvm that's been tested is to use [Homebrew](http://brew.sh/), a package manager for OS X. After installing it by following instructions from the web page, run the command  `brew install llvm35`, followed by `make LLVM_CONFIG=llvm-config-3.5` .
+
+### Setup
+Extract the LLVM DLL binary archive to the SDC repository, then build with `make -f Makefile.windows`.
+When running SDC, make sure `gcc`, `llc` and `opt` are available in your PATH.
+
+To run the tests, execute `dmd runner.d` to build the test-runner application found in `tests/`, then run it with `runner`.

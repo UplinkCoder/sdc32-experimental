@@ -1,4 +1,4 @@
-SDC ?= ../sdc
+SDC ?= ../bin/sdc
 
 LIBSDRT_ROOT = .
 LIBSDRT_EXTRA_DEPS =

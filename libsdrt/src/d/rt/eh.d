@@ -7,10 +7,10 @@ private enum ExceptionRegno = 0;
 private enum SelectorRegno = 1;
 
 private auto getExceptionClass() {
-	size_t ec;
+	ulong ec;
 	
 	auto s = "SDC\0D2\0\0";
-	for(uint i = 0; i < cast(uint)s.length; i++) {
+	for(uint i = 0; i < s.length; i++) {
 		ec = ec << 8 | s[i];
 	}
 	
@@ -177,7 +177,7 @@ private _Unwind_Reason_Code setupCatch(_Unwind_Context* ctx, _Unwind_Action acti
 }
 
 _Unwind_Reason_Code setupCleanup(_Unwind_Context* ctx, _Unwind_Action actions, _Unwind_Ptr landingPad, _Unwind_Exception* exceptionObject) {
-	// if we're merely in search phase, continue
+	// If we're merely in search phase, continue
 	if (actions & _Unwind_Action.SEARCH_PHASE) {
 		return _Unwind_Reason_Code.CONTINUE_UNWIND;
 	}
@@ -188,4 +188,3 @@ _Unwind_Reason_Code setupCleanup(_Unwind_Context* ctx, _Unwind_Action actions, _
 	
 	return _Unwind_Reason_Code.INSTALL_CONTEXT;
 }
-

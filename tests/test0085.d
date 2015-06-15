@@ -1,7 +1,6 @@
 //T compiles:yes
 //T has-passed:no
 //T retval:23
-//? tests the concat operator;
 
 string s1 = "some string";
 

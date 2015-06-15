@@ -1,3 +1,4 @@
+#!/usr/bin/env rdmd
 /**
  * Copyright 2010-2011 Bernard Helyer
  * Copyright 2011 Jakob Ovrum
@@ -21,6 +22,7 @@ version (linux) import core.sys.posix.unistd;
 
 
 immutable SDC = "../bin/sdc";
+immutable DMD = "dmd";
 
 version (Windows) {
     immutable EXE_EXTENSION = ".exe";
@@ -104,24 +106,27 @@ void test(string filename, string compiler)
     }
     if (compiler == SDC) {
         command = format(`%s -o %s "%s" %s`, SDC, exeName, filename, cmdDeps);
-    } else {
-        command = format(`%s %s "%s" %s`, compiler, exeName, filename, cmdDeps);
+    } else if (compiler == DMD) {
+            command = format(`%s -of%s "%s" %s`, compiler, exeName, filename, cmdDeps);
+    } else { 
+            command = format(`%s %s "%s" %s`, compiler, exeName, filename, cmdDeps);
     }
+
     // For some reasons &> is read as & > /dev/null causing the compiler to return 0.
     version (Posix) if(!expectedToCompile || true) command ~= " 2> /dev/null 1> /dev/null";
-    
-    auto retval = system(command);
-    if (expectedToCompile && retval != 0) {
+ 
+    auto returnInfo = executeShell(command);
+    if (expectedToCompile && returnInfo.status != 0) {
         stderr.writefln("%s: test expected to compile, did not.", filename);
         managerTid.send(filename, false, has);
         return;
     }
-    if (!expectedToCompile && retval == 0) {
+    if (!expectedToCompile && returnInfo.status == 0) {
         stderr.writefln("%s: test expected to not compile, did.", filename);
         managerTid.send(filename, false, has);
         return;
     }
-    if (!expectedToCompile && retval != 0) {
+    if (!expectedToCompile && returnInfo.status != 0) {
         managerTid.send(filename, true, has);
         return;
     }
@@ -130,10 +135,10 @@ void test(string filename, string compiler)
     command = exeName;
     version (Posix) command ~= " 2> /dev/null 1> /dev/null";
 
-    retval = system(command);
+    returnInfo = executeShell(command);
     
-    if (retval != expectedRetval) {
-        stderr.writefln("%s: expected retval %s, got %s", filename, expectedRetval, retval);
+    if (returnInfo.status != expectedRetval) {
+        stderr.writefln("%s: expected reval %s, got %s", filename, expectedRetval, returnInfo.status);
         managerTid.send(filename, false, has);
         return;
     }
@@ -243,8 +248,6 @@ void main(string[] args)
         write("Press any key to exit...");
         readln();
     }
-
-    if(regressions) exit(-1);
 }
 
 /// Print usage to stdout.

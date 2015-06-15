@@ -2,57 +2,65 @@ module d.llvm.backend;
 
 import d.llvm.codegen;
 import d.llvm.evaluator;
+import d.llvm.datalayout;
 
 import d.ir.symbol;
 
-import d.context;
-
 import llvm.c.core;
-import llvm.c.executionEngine;
 import llvm.c.target;
 import llvm.c.targetMachine;
 
-import llvm.c.transforms.passManagerBuilder;
-
-import std.array;
-import std.process;
-import std.stdio;
-import std.string;
-
 final class LLVMBackend {
-	private CodeGenPass pass;
-	private LLVMExecutionEngineRef executionEngine;
-	private LLVMEvaluator evaluator;
+private:
+	CodeGenPass pass;
 	
-	private uint optLevel;
-	private string linkerParams;
+	LLVMEvaluator evaluator;
+	LLVMDataLayout dataLayout;
 	
+	LLVMTargetMachineRef targetMachine;
+	
+	uint optLevel;
+	string linkerParams;
+	
+public:
+	import d.context.context;
 	this(Context context, string name, uint optLevel, string linkerParams) {
 		LLVMInitializeX86TargetInfo();
 		LLVMInitializeX86Target();
 		LLVMInitializeX86TargetMC();
 		
-		LLVMLinkInJIT();
+		import llvm.c.executionEngine;
+		LLVMLinkInMCJIT();
 		LLVMInitializeX86AsmPrinter();
 		
 		this.optLevel = optLevel;
 		this.linkerParams = linkerParams;
 		
-		pass = new CodeGenPass(context, name);
-		
-		char* errorPtr;
-		auto creationError = LLVMCreateJITCompilerForModule(&executionEngine, pass.dmodule, 0, &errorPtr);
-		if(creationError) {
-			scope(exit) LLVMDisposeMessage(errorPtr);
-			
-			import std.c.string;
-			auto error = errorPtr[0 .. strlen(errorPtr)].idup;
-			
-			writeln(error);
-			assert(0, "Cannot create execution engine ! Exiting...");
+		version(OSX) {
+			auto triple = "x86_64-apple-darwin9".ptr;
+		} else {
+			auto triple = "x86_64-pc-linux-gnu".ptr;
 		}
 		
-		evaluator = new LLVMEvaluator(executionEngine, pass);
+		targetMachine = LLVMCreateTargetMachine(
+			LLVMGetFirstTarget(),
+			triple,
+			"x86-64".ptr,
+			"".ptr,
+			LLVMCodeGenOptLevel.Default,
+			LLVMRelocMode.Default,
+			LLVMCodeModel.Default,
+		);
+		
+		auto td = LLVMGetTargetMachineData(targetMachine);
+		
+		pass = new CodeGenPass(context, name, td);
+		evaluator = new LLVMEvaluator(pass);
+		dataLayout = new LLVMDataLayout(pass, td);
+	}
+	
+	~this() {
+		LLVMDisposeTargetMachine(targetMachine);
 	}
 	
 	auto getPass() {
@@ -61,6 +69,10 @@ final class LLVMBackend {
 	
 	auto getEvaluator() {
 		return evaluator;
+	}
+	
+	auto getDataLayout() {
+		return dataLayout;
 	}
 	
 	void visit(Module mod) {
@@ -78,6 +90,7 @@ final class LLVMBackend {
 		
 		auto dmodule = pass.dmodule;
 		
+		import llvm.c.transforms.passManagerBuilder;
 		auto pmb = LLVMPassManagerBuilderCreate();
 		scope(exit) LLVMPassManagerBuilderDispose(pmb);
 		
@@ -86,6 +99,8 @@ final class LLVMBackend {
 			LLVMPassManagerBuilderSetOptLevel(pmb, 0);
 		} else {
 			LLVMDumpModule(dmodule);
+
+			import std.stdio;
 			writeln("\n; Optimized as :");
 			
 			LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 100);
@@ -95,48 +110,29 @@ final class LLVMBackend {
 		auto pm = LLVMCreatePassManager();
 		scope(exit) LLVMDisposePassManager(pm);
 		
-		LLVMAddTargetData(LLVMGetExecutionEngineTargetData(executionEngine), pm);
+		auto targetData = LLVMGetTargetMachineData(targetMachine);
+		LLVMAddTargetData(targetData, pm);
 		LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);
-		
 		LLVMRunPassManager(pm, dmodule);
 		
 		// Dump module for debug purpose.
 		LLVMDumpModule(dmodule);
 		
-		version(OSX) {
-			auto triple = "x86_64-apple-darwin9".ptr;
-		} else {
-			auto triple = "x86_64-pc-linux-gnu".ptr;
-		}
-		
-		auto targetMachine = LLVMCreateTargetMachine(LLVMGetFirstTarget(), triple, "x86-64".ptr, "".ptr, LLVMCodeGenOptLevel.Default, LLVMRelocMode.Default, LLVMCodeModel.Default);
-		scope(exit) LLVMDisposeTargetMachine(targetMachine);
-		
 		/*
+		import std.stdio;
 		writeln("\nASM generated :");
 		
 		LLVMTargetMachineEmitToFile(targetMachine, dmodule, "/dev/stdout".ptr, LLVMCodeGenFileType.Assembly, &errorPtr);
 		//*/
-		/+
-		version(linux) {
-			// Hack around the need of _tlsstart and _tlsend.
-			auto _tlsstart = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsstart");
-			LLVMSetInitializer(_tlsstart, LLVMConstInt(LLVMInt32Type(), 0, true));
-			LLVMSetSection(_tlsstart, ".tdata");
-			LLVMSetLinkage(_tlsstart, LLVMLinkage.LinkOnceODR);
-			
-			auto _tlsend = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsend");
-			LLVMSetInitializer(_tlsend, LLVMConstInt(LLVMInt32Type(), 0, true));
-			LLVMSetThreadLocal(_tlsend, true);
-			LLVMSetLinkage(_tlsend, LLVMLinkage.LinkOnceODR);
-		}
-		// +/
+
+		import std.string;
+
 		char* errorPtr;
 		auto linkError = LLVMTargetMachineEmitToFile(targetMachine, dmodule, toStringz(objFile), LLVMCodeGenFileType.Object, &errorPtr);
 		if(linkError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
 			
-			import std.c.string;
+			import std.c.string, std.stdio;
 			writeln(errorPtr[0 .. strlen(errorPtr)]);
 			
 			assert(0, "Fail to link ! Exiting...");
@@ -144,8 +140,10 @@ final class LLVMBackend {
 	}
 	
 	void link(string objFile, string executable) {
-		auto linkCommand = "gcc -o " ~ escapeShellFileName(executable) ~ " " ~ escapeShellFileName(objFile) ~ linkerParams ~ " -lsdrt";
+		import std.process;
+		auto linkCommand = "gcc -o " ~ escapeShellFileName(executable) ~ " " ~ escapeShellFileName(objFile) ~ linkerParams ~ " -lsdrt -lpthread";
 		
+		import std.stdio;
 		writeln(linkCommand);
 		wait(spawnShell(linkCommand));
 	}

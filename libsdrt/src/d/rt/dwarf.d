@@ -58,7 +58,8 @@ struct Encoding {
 		
 		switch(encoding & 0x07) {
 			case Format.Absptr:
-				return size_t.sizeof;
+				// XXX: remove cast when VRP is in.
+				return cast(uint) size_t.sizeof;
 			
 			case Format.Udata2:
 				return 2;
@@ -96,16 +97,13 @@ ptrdiff_t read_sleb128(ref const(ubyte)* p) {
 	
 	do {
 		b = *p++;
-		result |= (cast(ptrdiff_t) (b & 0x7f) << shift);
+		result |= (cast(long) (b & 0x7f) << shift);
 		shift += 7;
 	} while(b & 0x80);
 	
 	// Sign-extend if the value is negative.
 	if(shift < 8 * result.sizeof && (b & 0x40) != 0) {
-		static if (size_t.sizeof==ulong.sizeof)
-			result |= -(1L << shift);
-		else
-			result |= -(1 << shift);
+		result |= -(1L << shift);
 	}
 	
 	return result;
@@ -116,9 +114,12 @@ ubyte read_ubyte(ref const(ubyte)* p) {
 }
 
 uintptr_t read_encoded(ref const(ubyte)* p, _Unwind_Context* ctx, Encoding encoding) {
-	// TODO: Implement cast from pointer to integral.
-	auto pcrel = *(cast(uintptr_t*) &p);
+	if (encoding.isOmit()) {
+		printf("Encoding specifies omit flag, should not read.\n".ptr);
+		exit(-1);
+	}
 	
+	auto pcrel = cast(uintptr_t) p;
 	uintptr_t result;
 	
 	switch (encoding.getFormat()) {
@@ -131,37 +132,37 @@ uintptr_t read_encoded(ref const(ubyte)* p, _Unwind_Context* ctx, Encoding encod
 			break;
 		
 		case Format.Absptr:
-			result = *(cast(uintptr_t*)p);
+			result = *(cast(uintptr_t*) p);
 			p += uintptr_t.sizeof;
 			break;
 		
 		case Format.Udata2:
-			result = *(cast(ushort*)p);
+			result = *(cast(ushort*) p);
 			p += ushort.sizeof;
 			break;
 		
 		case Format.Udata4:
-			result = *(cast(uint*)p);
+			result = *(cast(uint*) p);
 			p += uint.sizeof;
 			break;
 		
 		case Format.Udata8:
-			result = cast(uintptr_t)*(cast(ulong*)p);
+			result = cast(uintptr_t) *(cast(ulong*) p);
 			p += ulong.sizeof;
 			break;
 		
 		case Format.Sdata2:
-			result = cast(uintptr_t)*(cast(short*)p);
+			result = cast(uintptr_t) *(cast(short*) p);
 			p += short.sizeof;
 			break;
 		
 		case Format.Sdata4:
-			result = cast(uintptr_t)*(cast(int*)p);
+			result = cast(uintptr_t) *(cast(int*) p);
 			p += int.sizeof;
 			break;
 		
 		case Format.Sdata8:
-			result = cast(uintptr_t)*(cast(long*)p);
+			result = cast(uintptr_t) *(cast(long*) p);
 			p += long.sizeof;
 			break;
 		
@@ -170,27 +171,28 @@ uintptr_t read_encoded(ref const(ubyte)* p, _Unwind_Context* ctx, Encoding encod
 			exit(-1);
 	}
 	
-	switch(encoding.getBase()) {
+	switch (encoding.getBase()) {
 		case Base.Absptr:
 		case Base.Aligned:
 			break;
 		
 		case Base.Pcrel:
 			result += pcrel;
+			break;
 		
 		case Base.Textrel:
 			auto txt = _Unwind_GetTextRelBase(ctx);
-			result += *(cast(uintptr_t*) &txt);
+			result += cast(uintptr_t) txt;
 			break;
 		
 		case Base.Datarel:
 			auto data = _Unwind_GetDataRelBase(ctx);
-			result += *(cast(uintptr_t*) &data);
+			result += cast(uintptr_t) data;
 			break;
 		
 		case Base.Funcrel:
 			auto region = _Unwind_GetRegionStart(ctx);
-			result += *(cast(uintptr_t*) &region);
+			result += cast(uintptr_t) region;
 			break;
 		
 		default:
@@ -199,7 +201,7 @@ uintptr_t read_encoded(ref const(ubyte)* p, _Unwind_Context* ctx, Encoding encod
 	}
 	
 	if (encoding.isIndirect()) {
-		// result = *(_Unwind_Internal_Ptr *) result;
+		result = *(cast(uintptr_t*) result);
 	}
 	
 	return result;
@@ -234,7 +236,7 @@ auto parseLsdHeader(ref const(ubyte)* p, _Unwind_Context* ctx) {
 		infos.lpStart = infos.start;
 	} else {
 		auto encoded = read_encoded(p, ctx, encoding);
-		infos.lpStart = *(cast(void**) &encoded);
+		infos.lpStart = cast(void*) encoded;
 	}
 	
 	infos.typeEncoding = Encoding(*p++);
@@ -249,4 +251,3 @@ auto parseLsdHeader(ref const(ubyte)* p, _Unwind_Context* ctx) {
 	
 	return infos;
 }
-

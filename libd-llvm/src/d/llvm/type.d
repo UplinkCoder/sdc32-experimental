@@ -11,10 +11,6 @@ import util.visitor;
 
 import llvm.c.core;
 
-import std.algorithm;
-import std.array;
-import std.string;
-
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
 
@@ -39,7 +35,21 @@ final class TypeGen {
 	}
 	
 	LLVMTypeRef visit(Type t) {
-		return t.accept(this);
+		return t.getCanonical().accept(this);
+	}
+	
+	LLVMTypeRef buildOpaque(Type t) {
+		t = t.getCanonical();
+		switch(t.kind) with(TypeKind) {
+			case Struct:
+				return buildOpaque(t.dstruct);
+			
+			case Union:
+				return buildOpaque(t.dunion);
+			
+			default:
+				return t.accept(this);
+		}
 	}
 	
 	LLVMTypeRef visit(BuiltinType t) {
@@ -92,7 +102,7 @@ final class TypeGen {
 	
 	LLVMTypeRef visitPointerOf(Type t) {
 		auto pointed = (t.kind != TypeKind.Builtin || t.builtin != BuiltinType.Void)
-			? visit(t)
+			? buildOpaque(t)
 			: LLVMInt8TypeInContext(llvmCtx);
 		
 		return LLVMPointerType(pointed, 0);
@@ -110,21 +120,101 @@ final class TypeGen {
 		return LLVMArrayType(visit(t), size);
 	}
 	
-	LLVMTypeRef visit(Struct s) {
+	auto buildOpaque(Struct s) {
 		if (auto st = s in typeSymbols) {
 			return *st;
 		}
 		
-		auto llvmStruct = typeSymbols[s] = LLVMStructCreateNamed(llvmCtx, cast(char*) s.mangle.toStringz());
+		import std.string;
+		return typeSymbols[s] = LLVMStructCreateNamed(llvmCtx, cast(char*) s.mangle.toStringz());
+	}
+	
+	LLVMTypeRef visit(Struct s) in {
+		assert(s.step >= Step.Signed);
+	} body {
+		// FIXME: Ensure we don't have forward references.
+		LLVMTypeRef llvmStruct = buildOpaque(s);
+		if (!LLVMIsOpaqueStruct(llvmStruct)) {
+			return llvmStruct;
+		}
 		
 		LLVMTypeRef[] types;
 		foreach(member; s.members) {
-			if(auto f = cast(Field) member) {
+			if (auto f = cast(Field) member) {
 				types ~= visit(f.type);
 			}
 		}
 		
 		LLVMStructSetBody(llvmStruct, types.ptr, cast(uint) types.length, false);
+		return llvmStruct;
+	}
+	
+	auto buildOpaque(Union u) {
+		if (auto ut = u in typeSymbols) {
+			return *ut;
+		}
+		
+		import std.string;
+		return typeSymbols[u] = LLVMStructCreateNamed(llvmCtx, cast(char*) u.mangle.toStringz());
+	}
+	
+	LLVMTypeRef visit(Union u) in {
+		assert(u.step >= Step.Signed);
+	} body {
+		// FIXME: Ensure we don't have forward references.
+		LLVMTypeRef llvmStruct = buildOpaque(u);
+		if (!LLVMIsOpaqueStruct(llvmStruct)) {
+			return llvmStruct;
+		}
+		
+		auto hasContext = u.hasContext;
+		auto members = u.members;
+		assert(!hasContext, "Voldemort union not supported atm");
+		
+		LLVMTypeRef[3] types;
+		uint elementCount = 1 + hasContext;
+		
+		uint firstindex, size, dalign;
+		foreach(i, m; members) {
+			if (auto f = cast(Field) m) {
+				types[hasContext] = visit(f.type);
+				
+				import llvm.c.target;
+				size = cast(uint) LLVMStoreSizeOfType(targetData, types[hasContext]);
+				dalign = cast(uint) LLVMABIAlignmentOfType(targetData, types[hasContext]);
+				
+				firstindex = cast(uint) (i + 1);
+				break;
+			}
+		}
+		
+		uint extra;
+		foreach(m; members[firstindex .. $]) {
+			if (auto f = cast(Field) m) {
+				auto t = visit(f.type);
+				
+				import llvm.c.target;
+				auto s = cast(uint) LLVMStoreSizeOfType(targetData, t);
+				auto a = cast(uint) LLVMABIAlignmentOfType(targetData, t);
+				
+				extra = ((size + extra) < s) ? s - size : extra;
+				dalign = (a > dalign) ? a : dalign;
+			}
+		}
+		
+		if (extra > 0) {
+			elementCount++;
+			types[1] = LLVMArrayType(LLVMInt8TypeInContext(llvmCtx), extra);
+		}
+		
+		LLVMStructSetBody(llvmStruct, types.ptr, elementCount, false);
+		
+		import llvm.c.target;
+		assert(
+			LLVMABIAlignmentOfType(targetData, llvmStruct) == dalign,
+			"union with differing alignement are not supported."
+		);
+		
 		return llvmStruct;
 	}
 	
@@ -142,6 +232,7 @@ final class TypeGen {
 			return *ct;
 		}
 		
+		import std.string;
 		auto llvmStruct = LLVMStructCreateNamed(llvmCtx, cast(char*) c.mangle.toStringz());
 		auto structPtr = typeSymbols[c] = LLVMPointerType(llvmStruct, 0);
 		
@@ -169,7 +260,10 @@ final class TypeGen {
 			}
 		}
 		
+		import std.algorithm, std.array;
 		auto vtblTypes = vtbl.map!(m => LLVMTypeOf(m)).array();
+
+		import std.string;
 		auto vtblStruct = LLVMStructCreateNamed(llvmCtx, cast(char*) (c.mangle ~ "__vtbl").toStringz());
 		LLVMStructSetBody(vtblStruct, vtblTypes.ptr, cast(uint) vtblTypes.length, false);
 		
@@ -206,26 +300,23 @@ final class TypeGen {
 	}
 	
 	LLVMTypeRef visit(TypeAlias a) {
-		return visit(a.type);
+		assert(0, "Use getCanonical");
 	}
 	
 	LLVMTypeRef visit(Interface i) {
 		assert(0, "codegen for interface is not implemented.");
 	}
 	
-	LLVMTypeRef visit(Union u) {
-		assert(0, "codegen for interface is not implemented.");
-	}
-	
 	LLVMTypeRef visit(Function f) {
 		return funCtxTypes.get(f, {
+			import std.string;
 			return funCtxTypes[f] = LLVMStructCreateNamed(pass.llvmCtx, ("S" ~ f.mangle[2 .. $] ~ ".ctx").toStringz());
 		}());
 	}
-
+	
 	private auto buildParamType(ParamType pt) {
 		auto t = visit(pt.getType());
-		if(pt.isRef) {
+		if (pt.isRef) {
 			t = LLVMPointerType(t, 0);
 		}
 		
@@ -233,6 +324,7 @@ final class TypeGen {
 	}
 	
 	LLVMTypeRef visit(FunctionType f) {
+		import std.algorithm, std.array;
 		auto params = f.getDelegate(0).parameters.map!(p => buildParamType(p)).array();
 		auto fun = LLVMPointerType(LLVMFunctionType(buildParamType(f.returnType), params.ptr, cast(uint) params.length, f.isVariadic), 0);
 		
@@ -251,6 +343,7 @@ final class TypeGen {
 	}
 	
 	LLVMTypeRef visit(Type[] seq) {
+		import std.algorithm, std.array;
 		auto types = seq.map!(t => visit(t)).array();
 		return LLVMStructTypeInContext(llvmCtx, types.ptr, cast(uint) types.length, false);
 	}

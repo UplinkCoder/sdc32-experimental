@@ -1,5 +1,5 @@
 //T compiles:yes
-//T has-passed:no
+//T has-passed:yes
 //T retval:0
 //? desc:Test range foreach.
 
@@ -9,6 +9,10 @@ int main() {
 		i += j;
 	}
 	assert(i == 10);
+	foreach_reverse(j; 1 .. 5) {
+		i -= j;
+	}
+	assert(i == 0);
 	
 	string str = "foobar";
 	string str2 = "raboof";
@@ -16,20 +20,16 @@ int main() {
 	foreach(size_t j; 0 .. str.length) {
 		assert(str[j] == str2[(str2.length - j) - 1]);
 	}
-	
-	i = 0;
+
+	int k = 0;
+	foreach_reverse(size_t j; 0 .. str.length) {
+		assert(str2[j] == str[k++]);
+	}
+
 	foreach(char* it; str.ptr .. str.ptr + str.length) {
 		assert(*it == str[i]);
 		i++;
 	}
-	
-	i = 0;
-	foreach(ref j; 1 .. 10) {
-		i += j;
-		if(j == 5)
-			j = 8;
-	}
-	assert(i == 24);
 	
 	// Break.
 	i = 0;
@@ -50,6 +50,7 @@ int main() {
 		i++;
 	}
 	assert(i == 5);
+	
 	return 0;
 }
 

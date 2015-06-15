@@ -1,3 +1,0 @@
-[submodule "libd"]
-	path = libd
-	url = git://github.com/deadalnix/libd.git

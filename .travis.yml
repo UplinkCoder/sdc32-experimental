@@ -4,7 +4,7 @@ language: d
 install:
 
 - sudo apt-get -y update || true
-- sudo apt-get -fy install llvm-3.4 || true
+- sudo apt-get -fy install llvm-3.5 || true
 
 
 script:

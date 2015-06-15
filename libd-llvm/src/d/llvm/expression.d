@@ -6,16 +6,13 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
+import d.context.location;
+
 import d.exception;
-import d.location;
 
 import util.visitor;
 
 import llvm.c.core;
-
-import std.algorithm;
-import std.array;
-import std.string;
 
 struct ExpressionGen {
 	private CodeGenPass pass;
@@ -32,8 +29,7 @@ struct ExpressionGen {
 	}
 	
 	private LLVMValueRef addressOf(Expression e) {
-		auto aog = AddressOfGen(pass);
-		return aog.visit(e);
+		return AddressOfGen(pass).visit(e);
 	}
 	
 	LLVMValueRef visit(BooleanLiteral bl) {
@@ -54,7 +50,7 @@ struct ExpressionGen {
 	
 	// XXX: character types in backend ?
 	LLVMValueRef visit(CharacterLiteral cl) {
-		return LLVMConstInt(pass.visit(cl.type), cl.value[0], false);
+		return LLVMConstInt(pass.visit(cl.type), cl.value, false);
 	}
 	
 	LLVMValueRef visit(NullLiteral nl) {
@@ -81,10 +77,9 @@ struct ExpressionGen {
 	
 	private auto handleBinaryOpAssign(alias LLVMBuildOp)(BinaryExpression e) {
 		auto lhsPtr = addressOf(e.lhs);
-		
-		auto lhs = LLVMBuildLoad(builder, lhsPtr, "");
 		auto rhs = visit(e.rhs);
 		
+		auto lhs = LLVMBuildLoad(builder, lhsPtr, "");
 		auto value = LLVMBuildOp(builder, lhs, rhs, "");
 		
 		LLVMBuildStore(builder, value, lhsPtr);
@@ -98,7 +93,7 @@ struct ExpressionGen {
 			: handleBinaryOpAssign!LLVMUnsignedBuildOp(e);
 	}
 	
-	private LLVMValueRef handleComparaison(BinaryExpression e, LLVMIntPredicate predicate) {
+	private LLVMValueRef handleComparison(BinaryExpression e, LLVMIntPredicate predicate) {
 		static LLVMIntPredicate workaround;
 		
 		auto oldWorkaround = workaround;
@@ -111,19 +106,19 @@ struct ExpressionGen {
 		})(e);
 	}
 	
-	private LLVMValueRef handleComparaison(BinaryExpression e, LLVMIntPredicate signedPredicate, LLVMIntPredicate unsignedPredicate) {
+	private LLVMValueRef handleComparison(BinaryExpression e, LLVMIntPredicate signedPredicate, LLVMIntPredicate unsignedPredicate) {
 		auto t = e.lhs.type.getCanonical();
 		if (t.kind == TypeKind.Builtin) {
 			if(isSigned(t.builtin)) {
-				return handleComparaison(e, signedPredicate);
+				return handleComparison(e, signedPredicate);
 			} else {
-				return handleComparaison(e, unsignedPredicate);
+				return handleComparison(e, unsignedPredicate);
 			}
 		} else if (t.kind == TypeKind.Pointer) {
-			return handleComparaison(e, unsignedPredicate);
+			return handleComparison(e, unsignedPredicate);
 		}
 		
-		assert(0, "Don't know how to compare " ~ /+ e.lhs.type.toString(context) ~ +/" with "/+ ~ e.rhs.type.toString(context) +/);
+		assert(0, "Can't compare " ~ e.lhs.type.toString(context) ~ " with " ~ e.rhs.type.toString(context));
 	}
 	
 	private auto handleLogicalBinary(bool shortCircuitOnTrue)(BinaryExpression e) {
@@ -253,16 +248,16 @@ struct ExpressionGen {
 				return handleBinaryOpAssign!LLVMBuildXor(e);
 			
 			case Equal :
-				return handleComparaison(e, LLVMIntPredicate.EQ);
+				return handleComparison(e, LLVMIntPredicate.EQ);
 			
 			case NotEqual :
-				return handleComparaison(e, LLVMIntPredicate.NE);
+				return handleComparison(e, LLVMIntPredicate.NE);
 			
 			case Identical :
-				return handleComparaison(e, LLVMIntPredicate.EQ);
+				return handleComparison(e, LLVMIntPredicate.EQ);
 			
 			case NotIdentical :
-				return handleComparaison(e, LLVMIntPredicate.NE);
+				return handleComparison(e, LLVMIntPredicate.NE);
 			
 			case In :
 			case NotIn :
@@ -283,16 +278,16 @@ struct ExpressionGen {
 				assert(0, "Not implemented");
 			
 			case Greater :
-				return handleComparaison(e, LLVMIntPredicate.SGT, LLVMIntPredicate.UGT);
+				return handleComparison(e, LLVMIntPredicate.SGT, LLVMIntPredicate.UGT);
 			
 			case GreaterEqual :
-				return handleComparaison(e, LLVMIntPredicate.SGE, LLVMIntPredicate.UGE);
+				return handleComparison(e, LLVMIntPredicate.SGE, LLVMIntPredicate.UGE);
 			
 			case Less :
-				return handleComparaison(e, LLVMIntPredicate.SLT, LLVMIntPredicate.ULT);
+				return handleComparison(e, LLVMIntPredicate.SLT, LLVMIntPredicate.ULT);
 			
 			case LessEqual :
-				return handleComparaison(e, LLVMIntPredicate.SLE, LLVMIntPredicate.ULE);
+				return handleComparison(e, LLVMIntPredicate.SLE, LLVMIntPredicate.ULE);
 			
 			case LessGreater :
 			case LessEqualGreater :
@@ -410,7 +405,7 @@ struct ExpressionGen {
 		
 		// Codegen of lhs can change the current block, so we put everything in order.
 		lhsBB = LLVMGetInsertBlock(builder);
-		LLVMMoveBasicBlockAfter(lhsBB, rhsBB);
+		LLVMMoveBasicBlockAfter(rhsBB, lhsBB);
 		
 		// Emit rhs
 		LLVMPositionBuilderAtEnd(builder, rhsBB);
@@ -451,10 +446,11 @@ struct ExpressionGen {
 	}
 	
 	LLVMValueRef visit(FieldExpression e) {
-		if(e.isLvalue) {
+		if (e.isLvalue) {
 			return LLVMBuildLoad(builder, addressOf(e), "");
 		}
 		
+		assert(e.expr.type.kind != TypeKind.Union, "rvalue unions not implemented.");
 		return LLVMBuildExtractValue(builder, visit(e.expr), e.field.index, "");
 	}
 	
@@ -490,10 +486,18 @@ struct ExpressionGen {
 	
 	LLVMValueRef visit(NewExpression e) {
 		auto ctor = visit(e.ctor);
+		
+		import std.algorithm, std.array;
 		auto args = e.args.map!(a => visit(a)).array();
 		
 		auto type = pass.visit(e.type);
-		LLVMValueRef size = LLVMSizeOf(type);
+		LLVMDumpValue(LLVMGetUndef(type));
+		
+		LLVMValueRef size = LLVMSizeOf(
+			(e.type.kind == TypeKind.Class)
+				? LLVMGetElementType(type)
+				: type,
+		);
 		
 		auto alloc = buildCall(druntimeGen.getAllocMemory(), [size]);
 		auto ptr = LLVMBuildPointerCast(builder, alloc, type, "");
@@ -534,10 +538,12 @@ struct ExpressionGen {
 		
 		// Emit bound check fail code.
 		LLVMPositionBuilderAtEnd(builder, failBB);
+
+		auto floc = location.getFullLocation(context);
 		
 		LLVMValueRef[2] args;
-		args[0] = buildDString(location.source.filename);
-		args[1] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), location.line, false);
+		args[0] = buildDString(floc.getFileName());
+		args[1] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), floc.getStartLineNumber(), false);
 		
 		buildCall(druntimeGen.getArrayBound(), args);
 		
@@ -589,6 +595,35 @@ struct ExpressionGen {
 		return slice;
 	}
 	
+	private LLVMValueRef buildBitCast(LLVMValueRef v, LLVMTypeRef t) {
+		auto k = LLVMGetTypeKind(t);
+		if (k != LLVMTypeKind.Struct) {
+			assert(k != LLVMTypeKind.Array);
+			return LLVMBuildBitCast(builder, v, t, "");
+		}
+		
+		auto vt = LLVMTypeOf(v);
+		assert(LLVMGetTypeKind(vt) == LLVMTypeKind.Struct);
+		
+		auto count = LLVMCountStructElementTypes(t);
+		assert(LLVMCountStructElementTypes(vt) == count);
+		
+		LLVMTypeRef[] types;
+		types.length = count;
+		
+		LLVMGetStructElementTypes(t, types.ptr);
+		
+		auto ret = LLVMGetUndef(t);
+		foreach (i; 0 .. count) {
+			ret = LLVMBuildInsertValue(builder, ret, buildBitCast(
+				LLVMBuildExtractValue(builder, v, i, ""),
+				types[i],
+			), i, "");
+		}
+		
+		return ret;
+	}
+	
 	LLVMValueRef visit(CastExpression e) {
 		auto value = visit(e.expr);
 		auto type = pass.visit(e.type);
@@ -617,18 +652,14 @@ struct ExpressionGen {
 			case Trunc :
 				return LLVMBuildTrunc(builder, value, type, "");
 			
-			case Pad :
-				auto k = e.expr.type.getCanonical().builtin;
-				if (isChar(k)) {
-					k = integralOfChar(k);
-				}
-				
-				return (k == BuiltinType.Bool || !isSigned(k))
-					? LLVMBuildZExt(builder, value, type, "")
-					: LLVMBuildSExt(builder, value, type, "");
+			case SPad :
+				return LLVMBuildSExt(builder, value, type, "");
+			
+			case UPad :
+				return LLVMBuildZExt(builder, value, type, "");
 			
 			case Bit :
-				return LLVMBuildBitCast(builder, value, type, "");
+				return buildBitCast(value, type);
 			
 			case Qual :
 			case Exact :
@@ -707,7 +738,7 @@ struct ExpressionGen {
 		return LLVMBuildCall(builder, callee, args.ptr, cast(uint) args.length, "");
 	}
 	
-	LLVMValueRef visit(CallExpression c) {
+	private LLVMValueRef buildCall(CallExpression c) {
 		auto cType = c.callee.type.getCanonical().asFunctionType();
 		auto contexts = cType.contexts;
 		auto params = cType.parameters;
@@ -726,7 +757,7 @@ struct ExpressionGen {
 		}
 		
 		uint i = 0;
-		if (c.args) foreach(t; params) {
+		foreach(t; params) {
 			args[i + firstarg] = t.isRef
 				? addressOf(c.args[i])
 				: visit(c.args[i]);
@@ -742,10 +773,17 @@ struct ExpressionGen {
 		return buildCall(callee, args);
 	}
 	
+	LLVMValueRef visit(CallExpression c) {
+		return c.callee.type.asFunctionType().returnType.isRef
+			? LLVMBuildLoad(builder, buildCall(c), "")
+			: buildCall(c);
+	}
+	
 	LLVMValueRef visit(TupleExpression e) {
 		auto tuple = LLVMGetUndef(pass.visit(e.type));
 		
 		uint i = 0;
+		import std.algorithm;
 		foreach(v; e.values.map!(v => visit(v))) {
 			tuple = LLVMBuildInsertValue(builder, tuple, v, i++, "");
 		}
@@ -754,8 +792,10 @@ struct ExpressionGen {
 	}
 	
 	LLVMValueRef visit(CompileTimeTupleExpression e) {
+		import std.algorithm, std.array;
 		auto fields = e.values.map!(v => visit(v)).array();
 		auto t = pass.visit(e.type);
+		
 		switch(LLVMGetTypeKind(t)) with(LLVMTypeKind) {
 			case Struct :
 				return LLVMConstNamedStruct(t, fields.ptr, cast(uint) fields.length);
@@ -790,10 +830,12 @@ struct ExpressionGen {
 		
 		// Emit assert call
 		LLVMPositionBuilderAtEnd(builder, failBB);
+
+		auto location = e.getFullLocation(context);
 		
 		LLVMValueRef[3] args;
-		args[1] = buildDString(e.location.source.filename);
-		args[2] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), e.location.line, false);
+		args[1] = buildDString(location.getFileName());
+		args[2] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), location.getStartLineNumber(), false);
 		
 		if(e.message) {
 			args[0] = visit(e.message);
@@ -848,7 +890,9 @@ struct AddressOfGen {
 		this.pass = pass;
 	}
 	
-	LLVMValueRef visit(Expression e) {
+	LLVMValueRef visit(Expression e) in {
+		assert(e.isLvalue, "You can only compute addresses of lvalues.");
+	} body {
 		return this.dispatch(e);
 	}
 	
@@ -860,28 +904,34 @@ struct AddressOfGen {
 	
 	LLVMValueRef visit(FieldExpression e) {
 		auto base = e.expr;
+		auto type = base.type.getCanonical();
 		
 		LLVMValueRef ptr;
-		if (base.isLvalue) {
-			ptr = visit(base);
-		} else {
-			auto eg = ExpressionGen(pass);
-			ptr = eg.visit(base);
-		}
-		
-		// Pointer auto dereference in D.
-		while(1) {
-			auto pointed = LLVMGetElementType(LLVMTypeOf(ptr));
-			auto kind = LLVMGetTypeKind(pointed);
-			if(kind != LLVMTypeKind.Pointer) {
-				assert(kind == LLVMTypeKind.Struct);
+		switch(type.kind) with(TypeKind) {
+			case Slice, Struct, Union:
+				ptr = visit(base);
 				break;
-			}
 			
-			ptr = LLVMBuildLoad(builder, ptr, "");
+			// XXX: Remove pointer. libd do not dererefence as expected.
+			case Pointer, Class:
+				ptr = ExpressionGen(pass).visit(base);
+				break;
+			
+			default:
+				assert(0, "Address of field only work on aggregate types, not " ~ type.toString(context));
 		}
 		
-		return LLVMBuildStructGEP(builder, ptr, e.field.index, "");
+		// Make the type is not opaque.
+		// XXX: Find a factorized way to load and gep that ensure
+		// the indexed is not opaque and load metadata are correct.
+		pass.visit(type);
+		
+		ptr = LLVMBuildStructGEP(builder, ptr, e.field.index, "");
+		if (type.kind == TypeKind.Union) {
+			ptr = LLVMBuildBitCast(builder, ptr, LLVMPointerType(pass.visit(e.type), 0), "");
+		}
+		
+		return ptr;
 	}
 	
 	LLVMValueRef visit(ThisExpression e) {
@@ -916,7 +966,8 @@ struct AddressOfGen {
 			case Down :
 			case IntToBool :
 			case Trunc :
-			case Pad :
+			case SPad :
+			case UPad :
 				assert(0, "Not an lvalue");
 			
 			case Bit :
@@ -926,6 +977,10 @@ struct AddressOfGen {
 			case Exact :
 				return value;
 		}
+	}
+	
+	LLVMValueRef visit(CallExpression c) {
+		return ExpressionGen(pass).buildCall(c);
 	}
 	
 	LLVMValueRef visit(IndexExpression e) {
@@ -971,7 +1026,7 @@ struct AddressOfGen {
 			return LLVMBuildInBoundsGEP(builder, ptr, indices.ptr, indices.length, "");
 		}
 		
-		assert(0, "Don't know how to index "/+ ~ indexed.type.toString(context) +/);
+		assert(0, "Don't know how to index " ~ indexed.type.toString(context));
 	}
 }
 

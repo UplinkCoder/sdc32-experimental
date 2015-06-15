@@ -4,7 +4,7 @@
 // template value parameter
 
 auto foo(T U, T)() {
-	return U + T.sizeof;
+	return cast(int) (U + T.sizeof);
 }
 
 int main() {

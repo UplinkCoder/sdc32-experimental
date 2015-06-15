@@ -3,7 +3,7 @@
 //T retval:25
 // template alias parameter (value)
 
-auto foo(alias U)() {
+int foo(alias U)() {
 	return U + typeof(U).sizeof;
 }
 

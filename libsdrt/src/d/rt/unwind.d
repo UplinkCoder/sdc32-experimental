@@ -1,7 +1,7 @@
 module d.rt.unwind;
 
 alias _Unwind_Ptr = void*;
-alias _Unwind_Word = ulong;
+alias _Unwind_Word = size_t;
 
 extern(C):
 

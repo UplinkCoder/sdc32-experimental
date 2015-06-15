@@ -9,21 +9,16 @@ import d.llvm.string;
 import d.llvm.symbol;
 import d.llvm.type;
 
-import d.context;
-import d.location;
 import d.object;
 
 import util.visitor;
 
 import llvm.c.analysis;
 import llvm.c.core;
-import llvm.c.executionEngine;
-
-import std.algorithm;
-import std.array;
-import std.string;
+import llvm.c.target;
 
 final class CodeGenPass {
+	import d.context.context;
 	Context context;
 	
 	private SymbolGen symbolGen;
@@ -35,8 +30,9 @@ final class CodeGenPass {
 	
 	ObjectReference object;
 	
-	LLVMContextRef llvmCtx;
+	LLVMTargetDataRef targetData;
 	
+	LLVMContextRef llvmCtx;
 	LLVMBuilderRef builder;
 	LLVMModuleRef dmodule;
 	
@@ -64,8 +60,9 @@ final class CodeGenPass {
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
 	
-	this(Context context, string name) {
+	this(Context context, string name, LLVMTargetDataRef targetData) {
 		this.context	= context;
+		this.targetData	= targetData;
 		
 		symbolGen		= new SymbolGen(this);
 		typeGen			= new TypeGen(this);
@@ -76,6 +73,8 @@ final class CodeGenPass {
 		
 		llvmCtx = LLVMContextCreate();
 		builder = LLVMCreateBuilderInContext(llvmCtx);
+
+		import std.string;
 		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), llvmCtx);
 		
 		LLVMValueRef[3] branch_metadata;
@@ -140,6 +139,10 @@ final class CodeGenPass {
 		return typeGen.visit(s);
 	}
 	
+	auto buildUnionType(Union u) {
+		return typeGen.visit(u);
+	}
+	
 	auto buildClassType(Class c) {
 		return typeGen.visit(c);
 	}
@@ -158,86 +161,6 @@ final class CodeGenPass {
 	
 	auto buildDString(string str) {
 		return stringGen.buildDString(str);
-	}
-
-	//
-	//T ctfeT (T) (Expression e) {
-	//
-	//}
-
-	auto ctfe(Expression e, LLVMExecutionEngineRef executionEngine) {
-		scope(failure) LLVMDumpModule(dmodule);
-		
-		auto funType = LLVMFunctionType(visit(e.type), null, 0, false);
-		
-		auto fun = LLVMAddFunction(dmodule, "__ctfe", funType);
-		scope(exit) LLVMDeleteFunction(fun);
-		
-		auto backupCurrentBB = LLVMGetInsertBlock(builder);
-		scope(exit) {
-			if(backupCurrentBB) {
-				LLVMPositionBuilderAtEnd(builder, backupCurrentBB);
-			} else {
-				LLVMClearInsertionPosition(builder);
-			}
-		}
-		
-		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
-		LLVMPositionBuilderAtEnd(builder, bodyBB);
-		
-		// Generate function's body.
-		import d.llvm.expression;
-		auto eg = ExpressionGen(this);
-		LLVMBuildRet(builder, eg.visit(e));
-		
-		checkModule();
-		
-		auto result = LLVMRunFunction(executionEngine, fun, 0, null);
-		scope(exit) LLVMDisposeGenericValue(result);
-		
-		return LLVMGenericValueToInt(result, true);
-	}
-	
-	auto ctString(Expression e, LLVMExecutionEngineRef executionEngine) in {
-		// FIXME: newtype
-		// assert(cast(SliceType) peelAlias(e.type).type, "this only CTFE strings.");
-	} body {
-		scope(failure) LLVMDumpModule(dmodule);
-		
-		// Create a global variable that recieve the string.
-		auto reciever = LLVMAddGlobal(dmodule, visit(e.type), "__ctString");
-		scope(exit) LLVMDeleteGlobal(reciever);
-		
-		auto funType = LLVMFunctionType(LLVMVoidTypeInContext(llvmCtx), null, 0, false);
-		
-		auto fun = LLVMAddFunction(dmodule, "__ctfe", funType);
-		scope(exit) LLVMDeleteFunction(fun);
-		
-		auto backupCurrentBB = LLVMGetInsertBlock(builder);
-		scope(exit) {
-			if(backupCurrentBB) {
-				LLVMPositionBuilderAtEnd(builder, backupCurrentBB);
-			} else {
-				LLVMClearInsertionPosition(builder);
-			}
-		}
-		
-		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
-		LLVMPositionBuilderAtEnd(builder, bodyBB);
-		
-		// Generate function's body.
-		import d.llvm.expression;
-		auto eg = ExpressionGen(this);
-		LLVMBuildStore(builder, eg.visit(e), reciever);
-		LLVMBuildRetVoid(builder);
-		
-		checkModule();
-		
-		string s;
-		LLVMAddGlobalMapping(executionEngine, reciever, &s);
-		LLVMRunFunction(executionEngine, fun, 0, null);
-		
-		return s.idup;
 	}
 	
 	auto checkModule() {
@@ -265,6 +188,7 @@ final class DruntimeGen {
 	
 	private auto getNamedFunction(string name, lazy LLVMTypeRef type) {
 		return cache.get(name, cache[name] = {
+			import std.string;
 			return LLVMAddFunction(pass.dmodule, name.toStringz(), type);
 		}());
 	}

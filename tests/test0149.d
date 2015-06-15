@@ -1,5 +1,5 @@
 //T compiles:yes
-//T has-passed:no
+//T has-passed:yes
 //T retval:19
 // Catch
 
@@ -13,7 +13,5 @@ int main() {
 	} catch(Throwable e) {
 		return 13;
 	}
-	
-	return 42;
 }
 

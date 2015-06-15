@@ -4,7 +4,7 @@
 // template typed alias parameter (value)
 
 auto foo(alias T U, T)() {
-	return U + T.sizeof;
+	return cast(int) (U + T.sizeof);
 }
 
 int main() {

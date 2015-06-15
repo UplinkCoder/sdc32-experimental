@@ -1,12 +1,12 @@
 //T compiles:yes
-//T has-passed:no
+//T has-passed:yes
 //T retval:30
-//T dependency:test0037_import1.d
+//T dependency:test0037_import.d
 
-import test0037_import1;
+import test0037_import;
 
 alias Integer = int;
-alias SS = test0037_import1.S;
+alias SS = test0037_import.S;
 alias bar = foo;
 alias bas = bar;
 
