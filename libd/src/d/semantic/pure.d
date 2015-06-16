@@ -52,6 +52,9 @@ bool isModifyed(VariableExpression e) {
 }
 
 Expression[] getExpressions(Expression e, Node p = null) {
+	if (e is null) {
+		return [];
+	}
 	Expression[] result;
 	result.reserve(32);
 
@@ -84,6 +87,9 @@ Expression[] getExpressions(Expression e, Node p = null) {
 }
 
 Expression[] getExpressions(Statement s, Node p = null) {
+	if (s is null) {
+		return [];
+	}
 	Expression[] result;
 	result.reserve(64);
 
