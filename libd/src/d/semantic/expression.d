@@ -513,7 +513,14 @@ public:
 				return MatchLevel.Exact;
 		}
 	}
-	
+
+	Expression visit(IsExpression e) {
+		import d.semantic.type;
+		auto ts = TypeVisitor(pass).visit(e.tested);
+		
+		return new BooleanLiteral(e.location, ts.kind != TypeKind.Error);
+	}
+
 	Expression getFrom(Location location, Function f) {
 		scheduler.require(f, Step.Signed);
 		assert(!f.hasThis || !f.hasContext, "this + context not implemented");
