@@ -1,27 +1,33 @@
 # Common definitions
 
-SDC_SRC = \
+LIBSDC_SRC = \
 	$(SDC_ROOT)/src/sdc/*.d \
 	$(SDC_ROOT)/src/util/*.d
 
+DRIVER_SRC = $(SDC_ROOT)/src/driver/*.d
+
 SDC = bin/sdc
 
-ALL_TARGET ?= $(SDC)
+LIBSDC = lib/libsdc.a
+
+ALL_TARGET ?= $(LIBSDC) $(SDC)
 
 LIBD_LLVM_ROOT ?= $(SDC_ROOT)/../libd-llvm
 ALL_TARGET ?= $(SDC) bin/sdc.conf
 
 include $(LIBD_LLVM_ROOT)/makefile.common
 
-SDC_IMPORTS = $(LIBD_LLVM_IMPORTS) -I$(LIBD_LLVM_ROOT)/src
+SDC_IMPORTS = -I$(SDC_ROOT)/src $(LIBD_LLVM_IMPORTS) -I$(LIBD_LLVM_ROOT)/src
 
-$(SDC): obj/sdc.o $(LIBD) $(LIBD_LLVM)
+$(SDC): $(LIBSDC) $(LIBD) $(LIBD_LLVM)
 	@mkdir -p bin
-	gcc -o $(SDC) obj/sdc.o $(ARCHFLAG) $(LDFLAGS)
+	$(DMD) -c -ofobj/driver.o $(DRIVER_SRC) $(DFLAGS) $(SDC_IMPORTS)
+	gcc -o $(SDC) obj/driver.o $(ARCHFLAG) $(LDFLAGS)
 
-obj/sdc.o: $(SDC_SRC) $(LIBD_DEP_BASE)
+$(LIBSDC): $(SDC_SRC) $(LIBD_DEP_BASE)
 	@mkdir -p lib obj
-	$(DMD) -c -ofobj/sdc.o $(SDC_SRC) $(DFLAGS) $(SDC_IMPORTS)
+	$(DMD) -c -ofobj/sdc.o $(LIBSDC_SRC) $(DFLAGS) $(SDC_IMPORTS)
+	ar rcs $(LIBSDC) obj/sdc.o
 
 bin/sdc.conf:
 	@mkdir -p bin
