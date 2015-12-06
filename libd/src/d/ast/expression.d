@@ -493,15 +493,88 @@ class DollarExpression : AstExpression {
 }
 
 /**
+ * flavour of isExpression.
+ */
+enum IsKind {
+	Basic,
+	ConvertCompare,
+	ExactCompare,
+	Kind,
+	Qualifier,
+}
+/**
  * is expression.
  */
 class IsExpression : AstExpression {
 	AstType tested;
-	
+	IsKind isKind;
+
+	import d.ir.type:TypeKind;
+	union {
+		AstType against;
+		TypeKind typeKind;
+		TypeQualifier qualifier;
+	}
+
 	this(Location location, AstType tested) {
 		super(location);
 		
 		this.tested = tested;
+		this.isKind = IsKind.Basic;
+	}
+
+
+	this(Location location, AstType tested, bool isExact, AstType against) {
+		super(location);
+
+		this.tested = tested;
+		if (isExact) {
+			this.isKind = isKind.ExactCompare;
+		} else {
+			this.isKind = IsKind.ConvertCompare;
+		}
+		this.against = against;
+	}
+
+	this(Location location, AstType tested, TypeKind typeKind) {
+		super(location);
+		
+		this.tested = tested;
+		this.isKind = isKind.Kind;
+		this.typeKind = typeKind;
+	}
+
+	this(Location location, AstType tested, TypeQualifier qualifier) {
+		super(location);
+		
+		this.tested = tested;
+		this.isKind = IsKind.Qualifier;
+		this.qualifier = qualifier;
+	}
+
+	override string toString(const Context c) const {
+		import std.conv:to;
+		import std.string:toLower;
+		string result = "is(" ~ tested.toString(c);
+
+		final switch (isKind) with (IsKind) {
+		case ExactCompare :
+			result ~= " == " ~ against.toString(c);
+			goto case Basic;
+		case ConvertCompare :
+			result ~= " : " ~ against.toString(c);
+			goto case Basic;
+		case Kind :
+			result ~= " == " ~ to!string(typeKind).toLower;
+			goto case Basic;
+		case Qualifier :
+			result ~= " == " ~ to!string(qualifier).toLower;
+			goto case Basic;
+		case Basic :
+			result ~= ")";
+		}
+
+		return result;
 	}
 }
 

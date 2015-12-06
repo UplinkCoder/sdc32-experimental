@@ -860,28 +860,77 @@ private auto parseIsExpression(ref TokenRange trange) {
 	trange.match(TokenType.OpenParen);
 	
 	auto type = trange.parseType();
-	
+
+	IsExpression result = new IsExpression(location, type);
+
 	// Handle alias throw is expression.
-	if (trange.front.type == TokenType.Identifier) {
-		trange.popFront();
-	}
+//	if (trange.front.type == TokenType.Identifier) {
+//		trange.popFront();
+//	}
 	
 	switch(trange.front.type) with(TokenType) {
 		case Colon :
 			trange.popFront();
-			trange.parseType();
+			result.against = trange.parseType();
+			result.isKind = IsKind.ConvertCompare;
 			break;
-		
+
 		case EqualEqual :
 			trange.popFront();
-			
+	
 			switch(trange.front.type) {
-				case Struct, Union, Class, Interface, Enum, Function, Delegate :
-				case Super, Const, Immutable, Inout, Shared, Return :
+				import d.ir.type:TypeKind;
+				import d.ast.type:TypeQualifier;
+
+				case Struct :
+					result.typeKind = TypeKind.Struct;
+					goto setKindTypeKind;
+				case Union :
+					result.typeKind = TypeKind.Union;
+					goto setKindTypeKind;
+				case Class :
+					result.typeKind = TypeKind.Class;
+					goto setKindTypeKind;
+				case Interface :
+					result.typeKind = TypeKind.Interface;
+					goto setKindTypeKind;
+				case Enum :
+					result.typeKind = TypeKind.Enum;
+					goto setKindTypeKind;
+				case Function :
+					result.typeKind = TypeKind.Function;
+					goto setKindTypeKind;
+				case Delegate :
 					assert(0, "Not implemented.");
-				
+
+				setKindTypeKind :
+					trange.popFront();
+					result.isKind = IsKind.Kind;
+					break;
+
+				case Const :
+					result.qualifier = TypeQualifier.Const;
+					goto setKindQualifier;
+				case Immutable :
+					result.qualifier = TypeQualifier.Immutable;
+					goto setKindQualifier;
+				case Inout :
+					result.qualifier = TypeQualifier.Inout;
+					goto setKindQualifier;
+				case Shared :
+					result.qualifier = TypeQualifier.Shared;
+					goto setKindQualifier;
+				case Super, Return : 
+					assert(0, "Not implemented.");
+					
+				setKindQualifier :
+					trange.popFront();
+					result.isKind = IsKind.Qualifier;
+					break;
+
 				default :
-					trange.parseType();
+					result.against = trange.parseType();
+					result.isKind = IsKind.ExactCompare;
 			}
 			
 			break;
@@ -891,9 +940,10 @@ private auto parseIsExpression(ref TokenRange trange) {
 	}
 	
 	location.spanTo(trange.front.location);
+	result.location = location;
 	trange.match(TokenType.CloseParen);
-	
-	return new IsExpression(location, type);
+
+	return result;
 }
 
 /**

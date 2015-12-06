@@ -516,9 +516,54 @@ public:
 
 	Expression visit(IsExpression e) {
 		import d.semantic.type;
-		auto ts = TypeVisitor(pass).visit(e.tested);
-		
-		return new BooleanLiteral(e.location, ts.kind != TypeKind.Error);
+		import d.semantic.typepromotion;
+		auto tv = TypeVisitor(pass);
+
+		auto tested = tv.visit(e.tested);
+		bool result = tested.kind != TypeKind.Error;
+	
+		if (!result) { // short cicuit if tested is an error
+			return build!BooleanLiteral(e.location, false);
+		}
+
+		tested = tested.getCanonical();
+
+		final switch (e.isKind) with (IsKind) {
+			case Basic :
+				return build!BooleanLiteral(e.location, true);
+				
+			case ExactCompare :
+				auto against = tv.visit(e.against).getCanonical;
+				result = tested.unqual == against.unqual;
+				break;
+
+			case ConvertCompare :
+				auto against = tv.visit(e.against).getCanonical;
+				tested = tested.unqual;
+				against = against.unqual;
+
+				if (against.kind == TypeKind.Builtin && 
+					tested.kind == TypeKind.Builtin) {
+					auto at = against.builtin;
+					auto tt = tested.builtin;
+					//FIXME I am quite sure this will break;
+					result = at >= tt;
+				} else {
+					//FIXME resolve alias this for tested!
+					auto tp = TypePromoter(pass, e.location, tested);
+					result = tp.visit(against) == against;
+				}
+				break;
+
+			case Qualifier :
+				result = e.qualifier == tested.qualifier;
+				break;
+			case Kind :
+				result = e.typeKind == tested.kind;
+				break;
+		}
+
+		return build!BooleanLiteral(e.location, result);
 	}
 
 	Expression getFrom(Location location, Function f) {
