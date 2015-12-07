@@ -31,7 +31,7 @@ struct RuntimeGen {
 		}
 		
 		LLVMTypeRef[2] elts;
-		elts[0] = LLVMInt64TypeInContext(llvmCtx);
+		elts[0] = LLVMPtrType;
 		elts[1] = LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0);
 		
 		auto str = LLVMStructTypeInContext(
@@ -63,7 +63,7 @@ struct RuntimeGen {
 		}
 		
 		LLVMTypeRef[2] elts;
-		elts[0] = LLVMInt64TypeInContext(llvmCtx);
+		elts[0] = LLVMPtrType;
 		elts[1] = LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0);
 		
 		auto str = LLVMStructTypeInContext(
@@ -96,7 +96,7 @@ struct RuntimeGen {
 		}
 		
 		LLVMTypeRef[2] elts;
-		elts[0] = LLVMInt64TypeInContext(llvmCtx);
+		elts[0] = LLVMPtrType;
 		elts[1] = LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0);
 		
 		auto str = LLVMStructTypeInContext(
@@ -128,7 +128,7 @@ struct RuntimeGen {
 		}
 		
 		auto voidStar = LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0);
-		auto arg = LLVMInt64TypeInContext(llvmCtx);
+		auto arg = LLVMPtrType;
 		auto type = LLVMFunctionType(voidStar, &arg, 1, false);
 		
 		// Trying to get the patch into LLVM

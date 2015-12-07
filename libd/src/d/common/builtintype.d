@@ -11,6 +11,7 @@ enum BuiltinType : ubyte {
 	Int, Uint,
 	Long, Ulong,
 	Cent, Ucent,
+	SizeT,
 	Float, Double, Real,
 	Null,
 }
@@ -64,6 +65,9 @@ string toString(BuiltinType t) {
 		
 		case Ucent :
 			return "ucent";
+
+		case SizeT :
+			return "size_t";
 		
 		case Float :
 			return "float";
@@ -173,6 +177,19 @@ bool isFloat(BuiltinType t) {
 	return (t >= BuiltinType.Float) && (t <= BuiltinType.Real);
 }
 
+BuiltinType getUnsingendIntegralWithSize(uint size) {
+	switch(size) {
+		case 1 : return BuiltinType.Bool;
+		case 8 : return BuiltinType.Ubyte;
+		case 16 : return BuiltinType.Ushort;
+		case 32 : return BuiltinType.Uint;
+		case 64 : return BuiltinType.Ulong;
+		case 128 : return BuiltinType.Ucent;
+		default : assert(0/* "Integral with size" ~
+				std.conv.to!string(size) ~ "is not supported"*/);
+	}
+}
+
 uint getIntegralSize(BuiltinType t) in {
 	assert(isIntegral(t), "getIntegralSize only apply to integral types");
 } body {
@@ -193,6 +210,9 @@ uint getSize(BuiltinType t) {
 		case Float, Double :
 			return 1 << (t - Float + 2);
 		
+		case SizeT :
+			assert(0, "Use backed.pointerSize");
+
 		case None, Void, Real, Null :
 			assert(0, "Use SizeofVisitor");
 	}

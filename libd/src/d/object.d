@@ -1,6 +1,8 @@
 module d.object;
 
 import d.ir.symbol;
+import d.ir.type;
+import d.common.builtintype;
 
 import d.context.location;
 import d.context.name;
@@ -10,10 +12,6 @@ final class ObjectReference {
 	
 	this(Module object) {
 		this.object = object;
-	}
-	
-	auto getSizeT() {
-		return cast(TypeAlias) object.resolve(Location.init, BuiltinName!"size_t");
 	}
 	
 	private auto getClass(Name name) {

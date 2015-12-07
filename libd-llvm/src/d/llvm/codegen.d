@@ -22,9 +22,9 @@ final class CodeGen {
 	
 	LLVMContextRef llvmCtx;
 	LLVMModuleRef dmodule;
-	
+
 	LLVMValueRef[ValueSymbol] globals;
-	
+ 
 	import d.llvm.local;
 	LocalData localData;
 	
@@ -32,6 +32,7 @@ final class CodeGen {
 	
 	import d.llvm.type;
 	TypeGenData typeGenData;
+	LLVMTypeRef LLVMPtrType;
 	
 	private LLVMValueRef[string] stringLiterals;
 	
@@ -70,7 +71,9 @@ final class CodeGen {
 		globals.remove(null);
 		
 		llvmCtx = LLVMContextCreate();
-		
+
+		LLVMPtrType = TypeGen(this).visit(BuiltinType.SizeT);
+
 		import std.string;
 		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), llvmCtx);
 		
@@ -94,13 +97,14 @@ final class CodeGen {
 	
 	Module visit(Module m) {
 		// Dump module content on failure (for debug purpose).
+	
 		scope(failure) LLVMDumpModule(dmodule);
 		
 		foreach(s; m.members) {
 			import d.llvm.global;
 			GlobalGen(this).define(s);
 		}
-		
+		LLVMDumpModule(dmodule);
 		checkModule();
 		return m;
 	}
@@ -118,11 +122,11 @@ final class CodeGen {
 			LLVMSetGlobalConstant(globalVar, true);
 			LLVMSetUnnamedAddr(globalVar, true);
 			
-			auto zero = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, true);
+			auto zero = LLVMConstInt(LLVMPtrType, 0, true);
 			LLVMValueRef[2] indices = [zero, zero];
 			
 			LLVMValueRef[2] slice;
-			slice[0] = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), str.length, false);
+			slice[0] = LLVMConstInt(LLVMPtrType, str.length, false);
 			slice[1] = LLVMConstInBoundsGEP(globalVar, indices.ptr, indices.length);
 			
 			return LLVMConstStructInContext(llvmCtx, slice.ptr, indices.length, false);

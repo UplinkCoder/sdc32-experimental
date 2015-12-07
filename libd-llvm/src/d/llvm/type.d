@@ -10,6 +10,7 @@ import d.exception;
 import util.visitor;
 
 import llvm.c.core;
+import llvm.c.target;
 
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
@@ -113,7 +114,10 @@ struct TypeGen {
 			
 			case Ucent, Cent :
 				return LLVMIntTypeInContext(llvmCtx, 128);
-			
+
+			case SizeT :
+				return LLVMIntPtrTypeInContext(llvmCtx, targetData);
+
 			case Float :
 				return LLVMFloatTypeInContext(llvmCtx);
 			
@@ -424,6 +428,6 @@ struct TypeGen {
 	
 	import d.ir.error;
 	LLVMTypeRef visit(CompileError e) {
-		assert(0, "Error type can't be generated.");
+		assert(0, "Error type can't be generated." ~ e.message);
 	}
 }

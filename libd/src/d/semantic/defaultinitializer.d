@@ -44,6 +44,8 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	
 	E visit(BuiltinType t) {
 		final switch(t) with(BuiltinType) {
+			case SizeT :
+				return visit(pass.getSizeT());
 			case None :
 			case Void :
 				import d.ir.error;
@@ -52,7 +54,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 					Type.get(t).toString(context)
 						~ " has no default initializer",
 				).expression;
-			
+
 			case Bool :
 				return new BooleanLiteral(location, false);
 			
@@ -76,7 +78,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	}
 	
 	E visitSliceOf(Type t) {
-		auto sizet = pass.object.getSizeT().type.builtin;
+		auto sizet = pass.getSizeT().type.builtin;
 		CompileTimeExpression[] init = [
 			new NullLiteral(location, t.getPointer()),
 			new IntegerLiteral(location, 0UL, sizet),
