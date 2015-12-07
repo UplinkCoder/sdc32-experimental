@@ -539,20 +539,15 @@ public:
 
 			case ConvertCompare :
 				auto against = tv.visit(e.against).getCanonical;
-				tested = tested.unqual;
 				against = against.unqual;
+				tested = tested.unqual;
 
-				if (against.kind == TypeKind.Builtin && 
-					tested.kind == TypeKind.Builtin) {
-					auto at = against.builtin;
-					auto tt = tested.builtin;
-					//FIXME I am quite sure this will break;
-					result = at >= tt;
-				} else {
-					//FIXME resolve alias this for tested!
-					auto tp = TypePromoter(pass, e.location, tested);
-					result = tp.visit(against) == against;
-				}
+				Expression dummyExpr = new SuperExpression(e.location);
+				dummyExpr.type = tested;
+
+				dummyExpr = buildImplicitCast(pass, e.location, against, dummyExpr);
+
+				result = dummyExpr.type.kind != TypeKind.Error;
 				break;
 
 			case Qualifier :
