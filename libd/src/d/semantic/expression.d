@@ -458,7 +458,7 @@ public:
 		} else if (lhs.type.kind == TypeKind.Slice || lhs.type.kind == TypeKind.Array) {
 			
 		}
-)
+
 			
 
 //		if (e.op != AstBinaryOp.Identical &&  e.op != AstBinaryOp.NotIdentical && e.op != AstBinaryOp.Concat) 
