@@ -328,10 +328,107 @@ private:
 				assert(0, "Unorderd comparisons are not implemented.");
 		}
 	}
-	
+
+	bool isIcmpable(Expression e) {
+		import d.common.type;
+		import d.ir.type;
+
+		auto peeld =  e.type.getCanonicalAndPeelEnum() ;//getCanonical(); 
+	//	peeld = peeld.getCanonicalAndPeelEnum();
+		switch (peeld.kind) {
+			case TypeKind.Pointer,
+				 TypeKind.Builtin :
+					return true;
+
+			default : import std.stdio;
+				import std.conv;
+				writeln(to!string(peeld));
+				return false;
+		}
+	}
+
 public:
 	Expression visit(AstBinaryExpression e) {
-		return buildBinary(e.location, e.op, visit(e.lhs), visit(e.rhs));
+		auto lhs = visit(e.lhs);
+		auto rhs = visit(e.rhs);
+		import std.conv;
+		import std.stdio;
+		import d.context.name;
+
+		struct OverloadInfo {
+			Name name;
+			bool isTemplate;
+		}
+
+		const OverloadInfo overloadInfo(const AstBinaryOp op) pure nothrow {
+			switch (op) with (AstBinaryOp) {
+				case Assign :
+					OverloadInfo(BuiltinName!"opAssign", false);
+				case Equal, NotEqual :
+					OverloadInfo(BuiltinName!"opEquals", false);
+				case  Add, Sub,	Mul, Div, Mod, Pow :
+					OverloadInfo(BuiltinName!"opBinary", true);
+				default : OverloadInfo (BuiltinName!"", false);
+			}
+		}
+
+		Expression call;
+
+		auto oInfo = overloadInfo(e.op);
+		if (lhs.type.isAggregate && oInfo.name != BuiltinName!"") {
+			auto resolvedOpSymbol = lhs.type.aggregate.resolve(e.location, NameOfOp);
+
+			if (auto os = cast(OverloadSet) resolvedOpSymbol) {
+				if (oInfo.isTemplate) {
+					return callOverloadSet(e.location, os, [lhs, rhs]);
+				} else {
+					///XXX this should really be handeld by CallOverloadset
+					import std.algorithm:map,filter;
+
+					auto filterd = os.set
+						.map!(s => cast(Function)s)
+						.filter!(f => f && f.params[0].type == lhs.type &&
+								f.params[1].type.unqual == rhs.type.unqual
+								&& canConvert(
+									rhs.type.qualifier,
+									f.params[1].type.qualifier
+								)
+						);
+
+					foreach(f;filterd) {
+						if (call) return getError(call, e.location, "Ambigous Call");
+						call = handleCall(e.location, build!FunctionExpression(f.location, f), [lhs, rhs]);
+					}
+				}
+
+			} else if (auto f = cast(Function) resolvedOpSymbol) {
+				call = handleCall(e.location, build!FunctionExpression(f.location, f), [lhs, rhs]);
+				assert(0, "I am surprised we got here... If we do just remove this assert");
+			}
+
+			if (call) {
+				switch(e.op) with (AstBinaryOp) {
+					case NotEqual :
+						return build!UnaryExpression(
+							e.location,
+							Type.get(BuiltinType.Bool),
+							UnaryOp.Not,
+							call,
+						);
+
+					default : return call;
+				}
+			}
+
+		}
+
+//		if (e.op != AstBinaryOp.Identical &&  e.op != AstBinaryOp.NotIdentical && e.op != AstBinaryOp.Concat) 
+//		assert(isIcmpable(lhs) && isIcmpable(rhs),
+//			to!string(lhs.type.kind) ~ " " ~ to!string (e.op)~ " " ~ to!string(rhs.type.kind));
+//		//auto call = callOpEquals(lhs, rhs);
+
+
+		return buildBinary(e.location, e.op, lhs, rhs);
 	}
 	
 	Expression visit(AstTernaryExpression e) {
