@@ -128,17 +128,18 @@ private:
 			rhs,
 		);
 	}
-	
-	Expression buildBinary(
+
+	Expression buildOpOpAssign(
 		Location location,
 		AstBinaryOp op,
 		Expression lhs,
 		Expression rhs,
+		Expression delegate (Location, AstBinaryOp, Expression, Expression) handler,
 	) {
-		if (op.isAssign()) {
-			lhs = getLvalue(lhs);
-			rhs = getTemporary(rhs);
-			
+		assert(op.isAssign);
+		lhs = getLvalue(lhs);
+		rhs = getTemporary(rhs);
+
 			auto type = lhs.type;
 			auto llhs = build!BinaryExpression(
 				location,
@@ -155,11 +156,23 @@ private:
 					pass,
 					location,
 					type,
-					buildBinary(location, op.getBaseOp(), llhs, rhs),
+					handler(location, op.getBaseOp(), llhs, rhs),
 				),
 			);
-		}
 		
+ 
+	}
+	
+	Expression buildBinary(
+		Location location,
+		AstBinaryOp op,
+		Expression lhs,
+		Expression rhs,
+	) {
+		if (op.isAssign()) {
+			return buildOpOpAssign(location, op, lhs, rhs, &buildBinary);
+		}
+
 		ICmpOp icmpop;
 		final switch(op) with(AstBinaryOp) {
 			case Comma:
@@ -173,7 +186,7 @@ private:
 			
 			case Assign :
 				return buildAssign(location, lhs, rhs);
-			
+
 			case Add, Sub :
 				auto c = lhs.type.getCanonical();
 				if (c.kind == TypeKind.Pointer) {
@@ -328,14 +341,91 @@ private:
 				assert(0, "Unorderd comparisons are not implemented.");
 		}
 	}
-	
+
 public:
 	Expression visit(AstBinaryExpression e) {
 		auto lhs = visit(e.lhs);
 		auto rhs = visit(e.rhs);
 
-		if (e.op == AstBinaryOp.Equal || e.op == AstBinaryOp.NotEqual) {
-			if (lhs.type.kind == TypeKind.Slice || lhs.type.kind == TypeKind.Array) {
+		import d.context.name;
+
+		struct OverloadInfo {
+			Name name;
+			bool isTemplate;
+		}
+
+		const OverloadInfo overloadInfo(const AstBinaryOp op) pure {
+			switch (op) with (AstBinaryOp) {
+				case Assign :
+					return OverloadInfo(BuiltinName!"opAssign", false);
+				case Equal, NotEqual :
+					return OverloadInfo(BuiltinName!"opEquals", false);
+				case  Add, Sub,	Mul, Div, Mod, Pow :
+					return OverloadInfo(BuiltinName!"opBinary", true);
+				default : 
+					debug { if (lhs.type.isAggregate()) import std.stdio; writeln("Unhandled Op", op); }
+					return OverloadInfo (BuiltinName!"", false);
+			}
+		}
+		
+		Expression handleOverloadedBinaryOp (Location location, AstBinaryOp op, Expression lhs, Expression rhs) {
+			
+			Expression call;			
+
+			auto oInfo = overloadInfo(e.op);
+			if (op.isAssign) {
+				// oInfo = OverloadInfo(BuiltinName!"opOpAssign", true);
+				// if we cannot find opOpAssign let's call buildOpOpAssign with ourselfs as delegate
+				return buildOpOpAssign(location, op, lhs, rhs, &handleOverloadedBinaryOp); 
+			}
+
+			auto resolvedOpSymbol = lhs.type.aggregate.resolve(e.location, oInfo.name);
+
+			if (auto os = cast(OverloadSet) resolvedOpSymbol) {
+				pass.scheduler.require(os, Step.Signed);
+	
+				if (oInfo.isTemplate) {
+					call = callOverloadSet(e.location, os, [lhs, rhs]);
+				} else {
+					///XXX this should really be handeld by CallOverloadSet
+					import std.algorithm:map,filter;
+
+					auto filterd = os.set
+						.map!(s => cast(Function)s)
+						.filter!(f => f && f.params[0].type == lhs.type &&
+								f.params[1].type.unqual == rhs.type.unqual
+								&& canConvert(
+									rhs.type.qualifier,
+									f.params[1].type.qualifier
+								)
+						);
+
+					foreach(f;filterd) {
+						if (call) return getError(call, e.location, "Ambigous Call");
+						call = handleCall(e.location, build!FunctionExpression(f.location, f), [lhs, rhs]);
+					}
+				}
+
+			} else if (auto f = cast(Function) resolvedOpSymbol) {
+				call = handleCall(e.location, build!FunctionExpression(f.location, f), [lhs, rhs]);
+				assert(0, "I am surprised we got here... If we do just remove this assert");
+			}
+
+			if (e.op == AstBinaryOp.NotEqual && call) {
+				call = build!UnaryExpression(
+					e.location,
+					Type.get(BuiltinType.Bool),
+					UnaryOp.Not,
+					call,
+				);
+			}
+
+			return call;
+
+		}
+
+		handleArrayOpBinary (Location location, AstBinaryOp op, Expression lhs, Expression rhs) {
+			if (e.op == AstBinaryOp.Equal || e.op == AstBinaryOp.NotEqual) {
 				assert (rhs.type.kind == TypeKind.Slice || rhs.type.kind == TypeKind.Array,
 					"Slice or Array Expected");
 
@@ -354,11 +444,31 @@ public:
 				}
 
 				return expr;
+			} else {
+				return getError(lhs, "for Arrays only OpEquals is supported at this point");
 			}
 		}
 
-		return buildBinary(e.location, e.op, lhs, rhs);
 
+		
+		auto oInfo = overloadInfo(e.op);
+		if (lhs.type.isAggregate() && oInfo.name != BuiltinName!"") { 
+			auto call =  handleOverloadedBinaryOp (e.location, e.op, lhs, rhs);
+			if (call) return call;  
+		} else if (lhs.type.kind == TypeKind.Slice || lhs.type.kind == TypeKind.Array) {
+			
+		}
+)
+			
+
+//		if (e.op != AstBinaryOp.Identical &&  e.op != AstBinaryOp.NotIdentical && e.op != AstBinaryOp.Concat) 
+//		assert(isIcmpable(lhs) && isIcmpable(rhs),
+//			to!string(lhs.type.kind) ~ " " ~ to!string (e.op)~ " " ~ to!string(rhs.type.kind));
+//		//auto call = callOpEquals(lhs, rhs);
+
+
+		return buildBinary(e.location, e.op, lhs, rhs);
+>>>>>>> opEqauls
 	}
 	
 	Expression visit(AstTernaryExpression e) {
