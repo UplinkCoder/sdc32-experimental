@@ -332,7 +332,7 @@ AstExpression parseComparaisonExpression(ref TokenRange trange, AstExpression lh
 		case BangLessEqual:
 			processToken(AstBinaryOp.UnorderedGreater);
 			break;
-		
+
 		case Is :
 			processToken(AstBinaryOp.Identical);
 			break;
@@ -691,6 +691,9 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 				}
 			})();
 		
+		case __Traits :
+			return trange.parseTraitsExpression();		
+		
 		case Is :
 			return trange.parseIsExpression();
 		
@@ -849,6 +852,46 @@ AstExpression parsePowExpression(ref TokenRange trange, AstExpression expr) {
 	}
 	
 	return expr;
+}
+
+/**
+ * Parse __traits
+ */
+private AstExpression parseTraitsExpression(R)(ref R trange) {
+	Location location = trange.front.location;
+
+	trange.match(TokenType.__Traits);
+	trange.match(TokenType.OpenParen);
+	
+	import d.context.name;
+
+	Name[] args;
+	auto trait = trange.parseIdentifier().name;
+
+	import d.parser.dtemplate:parseTemplateArguments;
+
+	while(trange.front.type == TokenType.Comma) {
+		trange.match(TokenType.Comma);
+		switch (trange.front.type) with (TokenType) {
+			case StringLiteral, IntegerLiteral  : 
+				args ~= trange.front.name;
+				trange.match(trange.front.type);
+				break;
+
+			case Identifier :
+				args ~= trange.parseIdentifier().name;
+				break;
+
+			default :
+				import std.conv:to;
+				assert(0, to!string(trange.front.type) ~ " is not supported in __traits");
+		}
+	}
+
+	location.spanTo(trange.front.location);
+	trange.match(TokenType.CloseParen);
+
+	return new TraitsExpression(location, trait, args);
 }
 
 /**

@@ -431,6 +431,31 @@ class CharacterLiteral : CompileTimeExpression {
 }
 
 /**
+ *  __traits
+ */ 
+class TraitsExpression : CompileTimeExpression {
+	Name trait;
+	Name[] args;
+	
+	this(Location location, Name trait, Name[] args) {
+		super(location, Type.get(BuiltinType.None)); //TODO (UplinkCoder) perhaps don't use TypeKind.none ?
+		
+		this.trait = trait;
+		this.args = args;
+	}
+	
+	override string toString(const Context ctx) const {
+		string argString;
+		
+		foreach (arg;args) {
+			argString ~= ", " ~ arg.toString(ctx);
+		}
+		
+		return ("__traits(" ~ trait.toString(ctx) ~ argString ~ ")"); 
+	}
+}
+
+/**
  * String literal
  */
 class StringLiteral : CompileTimeExpression {
