@@ -424,7 +424,7 @@ public:
 
 		}
 
-		handleArrayOpBinary (Location location, AstBinaryOp op, Expression lhs, Expression rhs) {
+		Expression handleArrayOpBinary (Location location, AstBinaryOp op, Expression lhs, Expression rhs) {
 			if (e.op == AstBinaryOp.Equal || e.op == AstBinaryOp.NotEqual) {
 				assert (rhs.type.kind == TypeKind.Slice || rhs.type.kind == TypeKind.Array,
 					"Slice or Array Expected");
@@ -435,7 +435,7 @@ public:
 					[lhs, rhs],
 				);
 
-				if (e.op == AstBinaryOp.NotEqual) {
+				if (expr && e.op == AstBinaryOp.NotEqual) {
 					expr = new UnaryExpression(e.location,
 						Type.get(BuiltinType.Bool),
 						UnaryOp.Not,
