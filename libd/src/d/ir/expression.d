@@ -434,10 +434,11 @@ class CharacterLiteral : CompileTimeExpression {
  *  __traits
  */ 
 class TraitsExpression : CompileTimeExpression {
+	import d.parser.dtemplate:TemplateArgument;
 	Name trait;
-	Name[] args;
+	TemplateArgument[] args;
 	
-	this(Location location, Name trait, Name[] args) {
+	this(Location location, Name trait, TemplateArgument[] args) {
 		super(location, Type.get(BuiltinType.None)); //TODO (UplinkCoder) perhaps don't use TypeKind.none ?
 		
 		this.trait = trait;
