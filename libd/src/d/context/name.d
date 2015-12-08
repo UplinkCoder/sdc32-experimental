@@ -4,13 +4,15 @@ import d.context.context;
 
 struct Name {
 private:
-	uint id;
-	
 	this(uint id) {
 		this.id = id;
 	}
-	
 public:
+	uint id;
+
+	alias id this;
+
+
 	@property
 	bool isEmpty() const {
 		return this == BuiltinName!"";
@@ -126,6 +128,8 @@ enum Prefill = [
 	"C", "D", "C++", "Windows", "System", "Pascal", "Java",
 	// Version
 	"SDC", "D_LP64", "X86_64", "linux", "OSX", "Posix",
+	// Traits 
+	"identifier",
 	// Generated
 	"init", "length", "max", "min", "ptr", "sizeof", "alignof",
 	// Scope
