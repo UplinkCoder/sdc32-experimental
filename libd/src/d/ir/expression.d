@@ -429,6 +429,54 @@ class CharacterLiteral : CompileTimeExpression {
 		return "'" ~ to!string(value) ~ "'";
 	}
 }
+enum TraitsParameterType {
+	Identifier,
+	String,
+}
+
+struct TraitsParameter {
+	Location location;
+	TraitsParameterType type;
+	Name name;
+	import d.context.context;
+
+	string toString (const Context ctx) const {
+		final switch (type) with(TraitsParameterType) {
+			case Identifier :
+				return name.toString(ctx);
+			case String :
+				return  '"' ~ name.toString(ctx) ~ '"';
+		}
+	}
+
+	alias name this;
+}
+
+/**
+ *  __traits
+ */ 
+class TraitsExpression : CompileTimeExpression {
+	import d.parser.dtemplate:TemplateArgument;
+	Name trait;
+	TraitsParameter[] args;
+	
+	this(Location location, Name trait, TraitsParameter[] args) {
+		super(location, Type.get(BuiltinType.None)); //TODO (UplinkCoder) perhaps don't use TypeKind.none ?
+		
+		this.trait = trait;
+		this.args = args;
+	}
+	
+	override string toString(const Context ctx) const {
+		string argString;
+		
+		foreach (arg;args) {
+			argString ~= ", " ~ arg.toString(ctx);
+		}
+		
+		return ("__traits(" ~ trait.toString(ctx) ~ argString ~ ")"); 
+	}
+}
 
 /**
  * String literal
