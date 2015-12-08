@@ -128,17 +128,18 @@ private:
 			rhs,
 		);
 	}
-	
-	Expression buildBinary(
+
+	Expression buildOpOpAssign(
 		Location location,
 		AstBinaryOp op,
 		Expression lhs,
 		Expression rhs,
+		Expression delegate (Location, AstBinaryOp, Expression, Expression) handler,
 	) {
-		if (op.isAssign()) {
-			lhs = getLvalue(lhs);
-			rhs = getTemporary(rhs);
-			
+		assert(op.isAssign);
+		lhs = getLvalue(lhs);
+		rhs = getTemporary(rhs);
+
 			auto type = lhs.type;
 			auto llhs = build!BinaryExpression(
 				location,
@@ -155,11 +156,23 @@ private:
 					pass,
 					location,
 					type,
-					buildBinary(location, op.getBaseOp(), llhs, rhs),
+					handler(location, op.getBaseOp(), llhs, rhs),
 				),
 			);
-		}
 		
+ 
+	}
+	
+	Expression buildBinary(
+		Location location,
+		AstBinaryOp op,
+		Expression lhs,
+		Expression rhs,
+	) {
+		if (op.isAssign()) {
+			return buildOpOpAssign(location, op, lhs, rhs, &buildBinary);
+		}
+
 		ICmpOp icmpop;
 		final switch(op) with(AstBinaryOp) {
 			case Comma:
@@ -173,7 +186,7 @@ private:
 			
 			case Assign :
 				return buildAssign(location, lhs, rhs);
-			
+
 			case Add, Sub :
 				auto c = lhs.type.getCanonical();
 				if (c.kind == TypeKind.Pointer) {
@@ -333,16 +346,13 @@ private:
 		import d.common.type;
 		import d.ir.type;
 
-		auto peeld =  e.type.getCanonicalAndPeelEnum() ;//getCanonical(); 
-	//	peeld = peeld.getCanonicalAndPeelEnum();
+		auto peeld =  e.type.getCanonicalAndPeelEnum();
 		switch (peeld.kind) {
 			case TypeKind.Pointer,
 				 TypeKind.Builtin :
 					return true;
 
 			default : import std.stdio;
-				import std.conv;
-				writeln(to!string(peeld));
 				return false;
 		}
 	}
@@ -360,27 +370,38 @@ public:
 			bool isTemplate;
 		}
 
-		const OverloadInfo overloadInfo(const AstBinaryOp op) pure nothrow {
+		const OverloadInfo overloadInfo(const AstBinaryOp op) pure {
 			switch (op) with (AstBinaryOp) {
 				case Assign :
-					OverloadInfo(BuiltinName!"opAssign", false);
+					return OverloadInfo(BuiltinName!"opAssign", false);
 				case Equal, NotEqual :
-					OverloadInfo(BuiltinName!"opEquals", false);
+					return OverloadInfo(BuiltinName!"opEquals", false);
 				case  Add, Sub,	Mul, Div, Mod, Pow :
-					OverloadInfo(BuiltinName!"opBinary", true);
-				default : OverloadInfo (BuiltinName!"", false);
+					return OverloadInfo(BuiltinName!"opBinary", true);
+				default : 
+					debug { if (lhs.type.isAggregate()) import std.stdio; writeln("Unhandled Op", op); }
+					return OverloadInfo (BuiltinName!"", false);
 			}
 		}
+		
+		Expression handleOverloadedBinaryOp (Location location, AstBinaryOp op, Expression lhs, Expression rhs) {
+			///XXX Hack
+			Expression call;			
 
-		Expression call;
+			auto oInfo = overloadInfo(e.op);
+			if (op.isAssign) {
+				// oInfo = OverloadInfo(BuiltinName!"opOpAssign", true);
+				// if we cannot find opOpAssign let's call buildOpOpAssign with ourselfs as delegate
+				return buildOpOpAssign(location, op, lhs, rhs, &handleOverloadedBinaryOp); 
+			}
 
-		auto oInfo = overloadInfo(e.op);
-		if (lhs.type.isAggregate && oInfo.name != BuiltinName!"") {
-			auto resolvedOpSymbol = lhs.type.aggregate.resolve(e.location, NameOfOp);
+			auto resolvedOpSymbol = lhs.type.aggregate.resolve(e.location, oInfo.name);
 
 			if (auto os = cast(OverloadSet) resolvedOpSymbol) {
+				pass.scheduler.require(os, Step.Signed);
+	
 				if (oInfo.isTemplate) {
-					return callOverloadSet(e.location, os, [lhs, rhs]);
+					call = callOverloadSet(e.location, os, [lhs, rhs]);
 				} else {
 					///XXX this should really be handeld by CallOverloadset
 					import std.algorithm:map,filter;
@@ -406,21 +427,26 @@ public:
 				assert(0, "I am surprised we got here... If we do just remove this assert");
 			}
 
-			if (call) {
-				switch(e.op) with (AstBinaryOp) {
-					case NotEqual :
-						return build!UnaryExpression(
-							e.location,
-							Type.get(BuiltinType.Bool),
-							UnaryOp.Not,
-							call,
-						);
-
-					default : return call;
-				}
+			if (e.op == AstBinaryOp.NotEqual && call) {
+				call = build!UnaryExpression(
+					e.location,
+					Type.get(BuiltinType.Bool),
+					UnaryOp.Not,
+					call,
+				);
 			}
 
+			return call;
+
 		}
+
+
+		auto oInfo = overloadInfo(e.op);
+		if (lhs.type.isAggregate() && oInfo.name != BuiltinName!"") { 
+			auto call =  handleOverloadedBinaryOp (e.location, e.op, lhs, rhs);
+			if (call) return call;  
+		}
+			
 
 //		if (e.op != AstBinaryOp.Identical &&  e.op != AstBinaryOp.NotIdentical && e.op != AstBinaryOp.Concat) 
 //		assert(isIcmpable(lhs) && isIcmpable(rhs),
