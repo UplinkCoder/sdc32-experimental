@@ -1,0 +1,15 @@
+{
+	"name": "sdc",
+	
+	"description": "SDC's driver-lib",
+	"copyright": "Copyright © 2012 Amaury SECHET",
+	"authors": ["Amaury SECHET"],
+	"license" : "MIT",
+	"sourcePaths" : ["sdc/src"],
+	"targetPath" : "bin", 
+	"importPaths" : ["libd-llvm/src","libd/src", "libd-llvm/import"],
+	"dependencies": {
+		"libd-llvm":{"version":"~master","path":"libd-llvm"}	
+	},
+	"postBuildCommands":["make libsdrt 2>/dev/null"]
+}

@@ -1,0 +1,13 @@
+{
+	"name": "libd-llvm",
+	"targetType": "sourceLibrary",
+	"description": "SDC's llvm binding'",
+	"copyright": "Copyright © 2012 Amaury SECHET",
+	"authors": ["Amaury SECHET"],
+	"license" : "MIT",
+	"importPaths" : ["import"],
+	"libs" : ["LLVMLTO","LLVMObjCARCOpts","LLVMLinker","LLVMipo","LLVMVectorize","LLVMBitWriter","LLVMLineEditor","LLVMDebugInfo","LLVMInterpreter","LLVMInstrumentation","LLVMMCJIT","LLVMExecutionEngine","LLVMRuntimeDyld","LLVMIRReader","LLVMAsmParser","LLVMOption","LLVMX86Disassembler","LLVMX86AsmParser","LLVMX86CodeGen","LLVMSelectionDAG","LLVMAsmPrinter","LLVMCodeGen","LLVMScalarOpts","LLVMProfileData","LLVMInstCombine","LLVMTransformUtils","LLVMipa","LLVMAnalysis","LLVMTarget","LLVMX86Desc","LLVMObject","LLVMMCParser","LLVMBitReader","LLVMMCDisassembler","LLVMX86Info","LLVMX86AsmPrinter","LLVMMC","LLVMX86Utils","LLVMCore","LLVMTableGen","LLVMSupport","z","pthread","ncurses","stdc++","dl"],	"lflags" : ["-L/usr/lib/llvm-3.7/lib"],
+	"dependencies": {
+		"libd": {"version":"~master","path":"../libd"}
+	}
+}
