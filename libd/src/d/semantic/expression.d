@@ -1291,4 +1291,95 @@ public:
 			),
 		);
 	}
+
+import d.context.name;
+import d.ast.identifier;
+private Symbol resolveSymbolIdentifer(Location location, Identifier name) { 
+	import d.semantic.identifier;
+	
+//	auto id = new BasicIdentifier(location, name);
+	
+	return SymbolResolver(pass)
+		.visit(id)
+		.apply!(delegate Symbol(identified) {
+			static if(is(typeof(identified) : Symbol)) {
+				return identified;
+			} else static if (is(typeof(identified) : Expression)) {
+				auto varExpr = cast(VariableExpression) identified;
+				if  (varExpr) return varExpr.var;
+				assert(0, typeid(identified).toString() ~ "is has no Identifier");
+			} else static if (is(typeof(identified) : Type)) {
+				auto agg = cast (Aggregate) identified.aggregate;
+				if (agg) return agg;
+				assert(0, typeid(identified).toString()  ~ "is not an Aggregate");
+			}
+		})();
+	}
+	
+public :
+	
+	Expression visit(TraitsExpression e) {
+		import d.context.name;
+
+		auto invalidArgumentError() {
+			string errString = "Invalid Argument(s): to __traits("
+				~ e.trait.toString(pass.context); 
+			foreach(arg;e.args) {
+				errString ~= arg.toString(pass.context) ~ ", ";
+			}
+			return getError(e, errString ~ ")");
+		}
+		auto unresolvedIdentifier() {
+			auto _error = getError(e, "Identifier:'" ~
+			e.args[0].toString(pass.context) ~ 
+			"' could not be resolved");
+			return _error;
+		}
+
+		bool oneIdentifier() {
+			 return (e.args.length == 1 
+				&& e.args[0].type == TraitsParameterType.Identifier); 
+		}
+
+		switch (e.trait) {
+			case BuiltinName!"allMembers" :
+				if (!oneIdentifier) {
+					return invalidArgumentError();
+				}
+
+				auto sym = resolveSymbolIdentifer(e.args[0].location, e.args[0]);
+				if (sym && !cast(ErrorSymbol) sym) {
+					string result = "[";
+				//	pass.scheduler.require(sym, Step.Populated);
+					if (auto agg = cast(Aggregate) sym) {
+						foreach(member;agg.members) {
+				//			pass.scheduler.require(member, Step.Populated);
+							result ~= member.name.toString(pass.context) ~ ", ";
+						}
+
+						return build!StringLiteral(e.location, result[0 .. $-2] ~ "]");
+					} else {
+						return getError(e, "Symbol is not an Aggregate");
+					}
+				} else {
+					return unresolvedIdentifier();
+				}
+				
+			case BuiltinName!"identifier" :
+				if (!oneIdentifier) {
+					return invalidArgumentError();
+				}
+
+				auto sym = resolveSymbolIdentifer(e.args[0].location, e.args[0]);
+				if (sym && !cast(ErrorSymbol) sym) {
+					return build!StringLiteral(sym.location, sym.name.toString(pass.context));
+				} else {
+					return unresolvedIdentifier();
+				}
+
+
+			default : assert(0, "__traits( "~ e.trait.toString(pass.context) ~
+					", ... ) is not supported");
+		}
+	}
 }

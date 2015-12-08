@@ -129,7 +129,7 @@ enum Prefill = [
 	// Version
 	"SDC", "D_LP64", "X86_64", "linux", "OSX", "Posix",
 	// Traits 
-	"identifier",
+	"allMembers", "identifier", "getOverloads",
 	// Generated
 	"init", "length", "max", "min", "ptr", "sizeof", "alignof",
 	// Scope
