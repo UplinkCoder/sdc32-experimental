@@ -858,6 +858,7 @@ AstExpression parsePowExpression(ref TokenRange trange, AstExpression expr) {
  * Parse __traits
  */
 private AstExpression parseTraitsExpression(R)(ref R trange) {
+	import d.parser.dtemplate;
 	Location location = trange.front.location;
 
 	trange.match(TokenType.__Traits);
@@ -865,28 +866,36 @@ private AstExpression parseTraitsExpression(R)(ref R trange) {
 	
 	import d.context.name;
 
-	TemplateArgument[] args;
+	TraitsParameter[] args;
 	auto trait = trange.parseIdentifier().name;
 
-	import d.parser.dtemplate:parseTemplateArgument;
+	/+if (trait == BuiltinName!"compiles") {
+		//Very Special Handling Required :)
+	}+/
 
 	while(trange.front.type == TokenType.Comma) {
 		trange.match(TokenType.Comma);
-		args ~= trange.parseTemplateArgument();
-		/*	switch (trange.front.type) with (TokenType) {
-			case StringLiteral, IntegerLiteral  : 
-				args ~= trange.front.name;
-				trange.match(trange.front.type);
-				break;
+		TraitsParameter p;
+		p.location = trange.front.location;
+
+		switch (trange.front.type) with (TokenType) {
+			case StringLiteral :
+				p.type = TraitsParameterType.String;
+				goto setName;
 
 			case Identifier :
-				args ~= trange.parseIdentifier().name;
+				p.type = TraitsParameterType.Identifier;
+			setName :
+				p.name = trange.front.name;
+				p.location.spanTo(trange.front.location);
+				args ~= p;
+				trange.match(trange.front.type);
 				break;
 
 			default :
 				import std.conv:to;
 				assert(0, to!string(trange.front.type) ~ " is not supported in __traits");
-		}*/
+		}
 	}
 
 	location.spanTo(trange.front.location);
