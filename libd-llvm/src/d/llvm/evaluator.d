@@ -96,7 +96,7 @@ final class LLVMEvaluator : Evaluator {
 			
 			import llvm.c.target;
 			auto size = LLVMStoreSizeOfType(targetData, type);
-			auto returnType = LLVMPtrType;
+			auto returnType = LLVMInt64TypeInContext(llvmCtx);
 		}
 		
 		// Generate function signature
@@ -123,13 +123,13 @@ final class LLVMEvaluator : Evaluator {
 			auto ptrToInt = LLVMBuildPtrToInt(
 				builder,
 				buffer,
-				LLVMPtrType,
+				LLVMInt64TypeInContext(llvmCtx),
 				"",
 			);
 			
 			LLVMBuildRet(builder, ptrToInt);
 		}
-		LLVMDumpModule(dmodule);
+		
 		checkModule();
 		
 		auto executionEngine = createExecutionEngine(dmodule);
