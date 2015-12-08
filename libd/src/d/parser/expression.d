@@ -865,14 +865,15 @@ private AstExpression parseTraitsExpression(R)(ref R trange) {
 	
 	import d.context.name;
 
-	Name[] args;
+	TemplateArgument[] args;
 	auto trait = trange.parseIdentifier().name;
 
-	import d.parser.dtemplate:parseTemplateArguments;
+	import d.parser.dtemplate:parseTemplateArgument;
 
 	while(trange.front.type == TokenType.Comma) {
 		trange.match(TokenType.Comma);
-		switch (trange.front.type) with (TokenType) {
+		args ~= trange.parseTemplateArgument();
+		/*	switch (trange.front.type) with (TokenType) {
 			case StringLiteral, IntegerLiteral  : 
 				args ~= trange.front.name;
 				trange.match(trange.front.type);
@@ -885,7 +886,7 @@ private AstExpression parseTraitsExpression(R)(ref R trange) {
 			default :
 				import std.conv:to;
 				assert(0, to!string(trange.front.type) ~ " is not supported in __traits");
-		}
+		}*/
 	}
 
 	location.spanTo(trange.front.location);
