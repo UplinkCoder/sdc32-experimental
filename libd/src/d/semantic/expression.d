@@ -468,7 +468,6 @@ public:
 
 
 		return buildBinary(e.location, e.op, lhs, rhs);
->>>>>>> opEqauls
 	}
 	
 	Expression visit(AstTernaryExpression e) {
