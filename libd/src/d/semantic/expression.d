@@ -363,7 +363,7 @@ public:
 				case  Add, Sub,	Mul, Div, Mod, Pow :
 					return OverloadInfo(BuiltinName!"opBinary", true);
 				default : 
-					debug { if (lhs.type.isAggregate()) import std.stdio; writeln("Unhandled Op", op); }
+					debug { if (lhs.type.isAggregate()) { import std.stdio; writeln("Unhandled Op", op); } }
 					return OverloadInfo (BuiltinName!"", false);
 			}
 		}
