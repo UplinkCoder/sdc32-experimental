@@ -1295,4 +1295,20 @@ public:
 			),
 		);
 	}
+	import d.ast.conditional;
+
+	Expression visit(Mixin!AstExpression e) {
+		import d.lexer, d.parser.base, d.parser.expression;
+		import d.semantic.evaluator;
+
+		auto str =  evalString(visit(e.value));
+		auto pos = pass.context.registerMixin(e.location, str ~ "\0");
+		auto trange = lex(pos, pass.context);
+		import std.stdio;
+
+		trange.match(TokenType.Begin);
+		auto astExpr = trange.parseExpression();
+	
+		return visit(astExpr); 
+	}
 }
