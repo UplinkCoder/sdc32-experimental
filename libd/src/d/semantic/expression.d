@@ -776,6 +776,52 @@ public:
 			);
 		}).array(), args), args);
 	}
+
+	bool typesMatch(Expression[] args, Variable[] params) {
+	foreach(i,arg;args) {
+		if (params[i].type.unqual != arg.type.unqual ||
+			canConvert(arg.type.qualifier, params[i].type.qualifier)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private Expression callOverloadSetF(
+		Location location,
+		OverloadSet s,
+		Expression[] args,
+	) {
+	import std.algorithm:map,filter;
+	
+	Function func;
+	Template templ;
+	// use std.algorithm.group to lazyly seperate 
+	// Functions and Templates
+		foreach(symbols;s.set) {
+			pass.scheduler.require(s, Step.Populated);
+			if (auto f = cast(Function)s) {
+				if (f.params.length >= args.length &&
+					typesMatch(args, f.params)) {
+					if (func) return getError(s, location, "Ambigous Call");
+					func = f;
+				}
+			} else if (auto t = cast(Template)s) {
+				import d.semantic.dtemplate;
+				templ = t;
+			}
+		}
+
+		if (func) {
+			return handleCall(location, build!FunctionExpression(func.location, func), args);
+		} else if (templ) {
+			 return handleIFTI(location, templ, args);
+		} else {
+			return getError(s, location, "Overload cannot be found" 
+				~ s.name.toString(pass.context));
+		}
+
+	}
 	
 	private static bool checkArgumentCount(
 		bool isVariadic,
