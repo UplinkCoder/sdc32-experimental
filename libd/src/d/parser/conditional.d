@@ -156,6 +156,7 @@ private auto parseItems(ItemType)(ref TokenRange trange) {
  * Parse mixins.
  */
 auto parseMixin(ItemType)(ref TokenRange trange) if(is(Mixin!ItemType)) {
+	import d.ast.expression;
 	auto location = trange.front.location;
 	
 	trange.match(TokenType.Mixin);
@@ -165,8 +166,9 @@ auto parseMixin(ItemType)(ref TokenRange trange) if(is(Mixin!ItemType)) {
 	
 	trange.match(TokenType.CloseParen);
 	location.spanTo(trange.front.location);
-	
-	trange.match(TokenType.Semicolon);
+	static if (!is(ItemType == AstExpression)) {
+		trange.match(TokenType.Semicolon);
+	}
 	return new Mixin!ItemType(location, expression);
 }
 
