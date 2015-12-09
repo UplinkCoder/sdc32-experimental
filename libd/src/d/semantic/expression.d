@@ -387,25 +387,8 @@ public:
 				if (oInfo.isTemplate) {
 					call = callOverloadSet(e.location, os, [lhs, rhs]);
 				} else {
-					///XXX this should really be handeld by CallOverloadSet
-					import std.algorithm:map,filter;
-
-					auto filterd = os.set
-						.map!(s => cast(Function)s)
-						.filter!(f => f && f.params[0].type == lhs.type &&
-								f.params[1].type.unqual == rhs.type.unqual
-								&& canConvert(
-									rhs.type.qualifier,
-									f.params[1].type.qualifier
-								)
-						);
-
-					foreach(f;filterd) {
-						if (call) return getError(call, e.location, "Ambigous Call");
-						call = handleCall(e.location, build!FunctionExpression(f.location, f), [lhs, rhs]);
-					}
+					call = callOverloadSetF(e.location, os, [lhs, rhs]);
 				}
-
 			} else if (auto f = cast(Function) resolvedOpSymbol) {
 				call = handleCall(e.location, build!FunctionExpression(f.location, f), [lhs, rhs]);
 				assert(0, "I am surprised we got here... If we do just remove this assert");
