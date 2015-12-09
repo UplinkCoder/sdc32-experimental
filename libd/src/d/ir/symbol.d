@@ -119,6 +119,7 @@ class Function : ValueSymbol, Scope {
 		this.type = type;
 		this.params = params;
 		this.fbody = fbody;
+		this.symbol = this;
 	}
 }
 
@@ -149,6 +150,7 @@ abstract class Aggregate : TypeSymbol, Scope {
 		fillParentScope(parentScope);
 		
 		this.members = members;
+		this.symbol = this;
 	}
 }
 
@@ -273,6 +275,7 @@ class Template : Symbol, Scope {
 		
 		this.parameters = parameters;
 		this.members = members;
+		this.symbol = this;
 	}
 }
 
@@ -488,6 +491,7 @@ class Enum : TypeSymbol, Scope {
 		
 		this.type = type;
 		this.entries = entries;
+		this.symbol = this;
 	}
 }
 

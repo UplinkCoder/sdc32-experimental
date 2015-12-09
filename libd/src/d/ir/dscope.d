@@ -45,12 +45,15 @@ public:
  */
 interface Scope {
 	Module getModule();
+	Symbol getSymbol();
 	Scope getParentScope();
 	
 	Module[] getImports();
 	void addImport(Module m);
-	
+
+	///search for a symbol in this scope
 	Symbol search(Location location, Name name);
+	///reslove transitivly searches in the parent
 	Symbol resolve(Location location, Name name);
 	
 	void addSymbol(Symbol s);
@@ -74,6 +77,7 @@ private:
 	import d.ir.symbol;
 	Module dmodule;
 	static if (ST) {
+		Symbol symbol;
 		ParentScope parentScope;
 	}
 	
@@ -117,6 +121,14 @@ public:
 	static if (ST) {
 		bool[Variable] getCaptures() {
 			return captures;
+		}
+		Symbol getSymbol() {
+			return symbol;
+		}
+	} else {
+		Symbol getSymbol() {
+			//maybe assert here ?
+			return null;
 		}
 	}
 	
