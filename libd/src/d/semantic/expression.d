@@ -444,6 +444,11 @@ public:
 				}
 
 				return expr;
+			} else if (e.op == AstBinaryOp.Identical || e.op == AstBinaryOp.NotIdentical
+				|| e.op == AstBinaryOp.Concat || e.op == AstBinaryOp.Assign 
+				|| e.op == AstBinaryOp.ConcatAssign) {
+				return buildBinary(location, op, lhs, rhs);
+				//pointerCompare, Concat and Assign are still handeled by buildBinary :)
 			} else {
 				return getError(lhs, "for Arrays only OpEquals is supported at this point");
 			}
@@ -456,7 +461,7 @@ public:
 			auto call =  handleOverloadedBinaryOp (e.location, e.op, lhs, rhs);
 			if (call) return call;  
 		} else if (lhs.type.kind == TypeKind.Slice || lhs.type.kind == TypeKind.Array) {
-			
+			return handleArrayOpBinary(e.location, e.op, lhs, rhs);
 		}
 
 			
@@ -1481,10 +1486,10 @@ public:
 
 import d.context.name;
 import d.ast.identifier;
-private Symbol resolveSymbolIdentifer(Location location, Identifier name) { 
+private Symbol resolveSymbolIdentifer(Location location, Name name /*Identifier id*/) { 
 	import d.semantic.identifier;
 	
-//	auto id = new BasicIdentifier(location, name);
+	auto id = new BasicIdentifier(location, name);
 	
 	return SymbolResolver(pass)
 		.visit(id)

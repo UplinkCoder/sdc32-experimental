@@ -50,9 +50,15 @@ auto __sd_array_concat(T : U[], U)(T lhs, T rhs) {
 }
 
 //FIXME add a general comparison as soon as Overloading is supported
-bool __sd_array_compare(T : string)(T lhs, T rhs) {
+bool __sd_array_compare(T : U[], U)(T lhs, T rhs) {
 	if (lhs.length == rhs.length) {
-		return !memcmp(cast(void*) lhs.ptr, cast(void*) rhs.ptr, lhs.length);
+		//return !memcmp(cast(void*) lhs.ptr, cast(void*) rhs.ptr, lhs.length * U.sizeof);
+		foreach(i;0 .. lhs.length) {
+			if (lhs[i] != rhs[i]) {
+				return false;
+			}
+		}
+		return true;
 	} else {
 		return false;
 	}

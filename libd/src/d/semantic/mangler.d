@@ -199,7 +199,7 @@ struct TypeMangler {
 	
 	import d.ir.error;
 	string visit(CompileError e) {
-		assert(0, "Can't mangle error type.");
+		assert(0, "Can't mangle error type.\n" ~ e.toString(pass.context));
 	}
 }
 
