@@ -1299,7 +1299,7 @@ public:
 			.reduce!((t1, t2) => getCommonType(pass, e.location, t1, t2))
 			.getArray(cast(uint)values.length);
 
-		return build!ArrayLiteral(e.location, type, values);
+		return getTemporary(build!ArrayLiteral(e.location, type, values));
 	}
 	
 	Expression visit(Lambda e) {
