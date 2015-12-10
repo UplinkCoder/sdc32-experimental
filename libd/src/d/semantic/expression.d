@@ -1593,8 +1593,8 @@ public :
 					if (auto agg = cast(Aggregate) sym) {
 						foreach(member;agg.members) {
 				//			pass.scheduler.require(member, Step.Populated);
-							result ~= `"` ~ member.name.toString(pass.context) ~ `", `;						}
-
+							result ~= `"` ~ member.name.toString(pass.context) ~ `", `;
+						}
 						return build!StringLiteral(e.location, result[0 .. $-2] ~ "]");
 					} else {
 						return getError(e, "Symbol is not an Aggregate");

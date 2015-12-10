@@ -885,15 +885,19 @@ private AstExpression parseTraitsExpression(R)(ref R trange) {
 		switch (trange.front.type) with (TokenType) {
 			case StringLiteral :
 				p.type = TraitsParameterType.String;
-				goto setName;
+				p.name = trange.front.name;
+				trange.match(StringLiteral);
+				goto setLocation;
 
 			case Identifier :
 				p.type = TraitsParameterType.Identifier;
-			setName :
-				p.name = trange.front.name;
+				p.id = trange.parseIdentifier();
+			
+			setLocation :
+				/// Maybe we are off by one here ?
 				p.location.spanTo(trange.front.location);
 				args ~= p;
-				trange.match(trange.front.type);
+
 				break;
 
 			default :
