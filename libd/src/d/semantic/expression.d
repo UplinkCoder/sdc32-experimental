@@ -19,6 +19,7 @@ import d.exception;
 alias TernaryExpression = d.ir.expression.TernaryExpression;
 alias CallExpression = d.ir.expression.CallExpression;
 alias NewExpression = d.ir.expression.NewExpression;
+alias ArrayLiteral = d.ir.expression.ArrayLiteral;
 
 struct ExpressionVisitor {
 	private SemanticPass pass;
@@ -64,6 +65,7 @@ struct ExpressionVisitor {
 	Expression visit(StringLiteral e) {
 		return e;
 	}
+
 	
 private:
 	ErrorExpression getError(Expression base, Location location, string msg) {
@@ -1497,6 +1499,24 @@ public:
 	
 	Expression visit(DelegateLiteral e) {
 		return handleDgs(e.location, "__dg", e.params, e.isVariadic, e.fbody);
+	}
+
+	Expression visit(AstArrayLiteral e) {
+		import d.semantic.evaluator;
+		CompileTimeExpression[] values;
+		import std.array, std.algorithm;
+		values = e.values
+			.map!(v => pass.evaluate(visit(v)))
+			.array;
+
+		import d.semantic.typepromotion;
+
+		auto type = values
+			.map!(v => v.type)
+			.reduce!((t1, t2) => getCommonType(pass, e.location, t1, t2))
+			.getArray(cast(uint)values.length);
+
+		return build!ArrayLiteral(e.location, type, values);
 	}
 	
 	Expression visit(Lambda e) {
