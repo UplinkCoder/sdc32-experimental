@@ -435,21 +435,23 @@ enum TraitsParameterType {
 }
 
 struct TraitsParameter {
+	import d.ast.identifier;
 	Location location;
 	TraitsParameterType type;
-	Name name;
+	union {
+		Name name;
+		Identifier id;
+	}
 	import d.context.context;
 
 	string toString (const Context ctx) const {
 		final switch (type) with(TraitsParameterType) {
 			case Identifier :
-				return name.toString(ctx);
+				return id.toString(ctx);
 			case String :
 				return  '"' ~ name.toString(ctx) ~ '"';
 		}
 	}
-
-	alias name this;
 }
 
 /**

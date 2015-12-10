@@ -1294,10 +1294,8 @@ public:
 
 import d.context.name;
 import d.ast.identifier;
-private Symbol resolveSymbolIdentifer(Location location, Identifier name) { 
+private Symbol resolveSymbolIdentifer(Identifier id) { 
 	import d.semantic.identifier;
-	
-//	auto id = new BasicIdentifier(location, name);
 	
 	return SymbolResolver(pass)
 		.visit(id)
@@ -1347,14 +1345,14 @@ public :
 					return invalidArgumentError();
 				}
 
-				auto sym = resolveSymbolIdentifer(e.args[0].location, e.args[0]);
+				auto sym = resolveSymbolIdentifer(e.args[0].id);
 				if (sym && !cast(ErrorSymbol) sym) {
 					string result = "[";
 				//	pass.scheduler.require(sym, Step.Populated);
 					if (auto agg = cast(Aggregate) sym) {
 						foreach(member;agg.members) {
 				//			pass.scheduler.require(member, Step.Populated);
-							result ~= member.name.toString(pass.context) ~ ", ";
+							result ~= `"` ~ member.name.toString(pass.context) ~ `", `;
 						}
 
 						return build!StringLiteral(e.location, result[0 .. $-2] ~ "]");
@@ -1370,7 +1368,7 @@ public :
 					return invalidArgumentError();
 				}
 
-				auto sym = resolveSymbolIdentifer(e.args[0].location, e.args[0]);
+				auto sym = resolveSymbolIdentifer(e.args[0].id);
 				if (sym && !cast(ErrorSymbol) sym) {
 					return build!StringLiteral(sym.location, sym.name.toString(pass.context));
 				} else {
