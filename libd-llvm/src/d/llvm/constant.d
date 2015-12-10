@@ -49,6 +49,13 @@ struct ConstantGen {
 		);
 	}
 	
+	LLVMValueRef visit(ArrayLiteral al) {
+		import std.algorithm, std.array; 
+		/// Maybe this should be a CompileTimeTuple ?
+		auto values = al.values.map!(v => visit(v)).array;
+		return LLVMConstArray(TypeGen(pass).visit(al.type).LLVMGetElementType, values.ptr, cast(uint) values.length);
+	}
+
 	LLVMValueRef visit(FloatLiteral fl) {
 		import d.llvm.type;
 		return LLVMConstReal(TypeGen(pass).visit(fl.type), fl.value);

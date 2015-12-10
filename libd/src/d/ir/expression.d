@@ -32,6 +32,7 @@ Expression build(E, T...)(T args) if (is(E : Expression) && is(typeof(new E(T.in
 	return new E(args);
 }
 
+alias ArrayLiteral = d.ast.expression.ArrayLiteral!CompileTimeExpression;
 alias TernaryExpression = d.ast.expression.TernaryExpression!Expression;
 alias StaticTypeidExpression =
 	d.ast.expression.StaticTypeidExpression!(Type, Expression);
