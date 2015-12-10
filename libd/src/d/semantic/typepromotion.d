@@ -16,6 +16,14 @@ Type getPromotedType(SemanticPass pass, Location location, Type t1, Type t2) {
 	return TypePromoter(pass, location, t1).visit(t2);
 }
 
+Type getCommonType(SemanticPass pass, Location location, Type t1, Type t2) {
+	if (t1 == t2) {
+		return t1;
+	}
+	///XXX this works for now
+	return getPromotedType(pass, location, t1, t2);
+}
+
 // XXX: type promotion and finding common type are mixed up in there.
 // This need to be splitted.
 struct TypePromoter {
